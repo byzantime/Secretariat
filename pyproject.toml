@@ -1,0 +1,56 @@
+[project]
+name = "src"
+version = "0.1.0"
+readme = "README.md"
+dependencies = [
+    "quart",
+    "python-dotenv",
+]
+dynamic = ["description"]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.black]
+line-length = 88
+unstable = true
+extend-exclude = '''
+(
+  ^/migrations
+)
+'''
+
+[tool.ruff]
+line-length = 136
+# Assume Python 3.11
+target-version = "py311"
+
+[tool.ruff.lint]
+# Enable pycodestyle (`E`), Pyflakes (`F`), and isort (`I`) codes by default
+select = ["E", "F", "I", "C90"]
+ignore = ["F402"]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+[tool.ruff.lint.mccabe]
+# Flag errors if max complexity exceeded
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+known-third-party = ["quart"]
+force-single-line = true
+
+[tool.pytest.ini_options]
+markers = [
+    "asyncio",
+    "integration: marks tests as integration tests",
+    "stress: marks tests as stress tests",
+]
+asyncio_default_fixture_loop_scope = "function"

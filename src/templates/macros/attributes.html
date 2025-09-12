@@ -1,0 +1,61 @@
+{#
+  Renders component attributes as string
+
+  @param {string|dict} attributes - Either:
+    * A string of pre-rendered attributes (passed through directly)
+    * A dictionary of attribute name-value pairs where:
+      - Values can be:
+        * Simple strings/numbers/booleans
+        * Objects with {val: value, optional: bool} structure
+      - Boolean attributes output just the name when true
+      - Optional attributes are skipped when empty/false
+      - Supports safe-filtered values via {val: value} objects
+
+  @returns {string} HTML-safe string of rendered attributes
+
+  @example Basic usage
+    {{ attributes({'class': 'container', 'id': 'main'}) }}
+    // Outputs: class="container" id="main"
+
+  @example Boolean attribute
+    {{ attributes({'disabled': true}) }}
+    // Outputs: disabled
+
+  @example Optional attribute
+    {{ attributes({'data-value': {'val': '', 'optional': true}}) }}
+    // Outputs: (nothing)
+
+  @example Safe filtered value
+    {{ attributes({'onclick': {'val': 'alert("hi")'}}) }}
+    // Outputs: onclick="alert(&quot;hi&quot;)"
+#}
+{% macro attributes(attributes) -%}
+  {#- Default attributes output -#}
+  {% set ns = namespace(attributesHtml = attributes if attributes is string else "") %}
+
+  {#- Append attribute name/value pairs -#}
+  {%- if attributes is mapping %}
+    {% for name, value in (attributes.items() if attributes else {}.items()) %}
+    {#- Detect if this is a `safe` filtered value. Just pass the value through if so. -#}
+      {% if value is mapping and value.val not in [undefined, null] and value | length %}
+        {% set value = value.val %}
+      {% endif %}
+
+      {#- Set default attribute options -#}
+      {% set options = value if value is mapping else {
+        'value': value if value is string else value | lower,
+        'optional': false
+      } %}
+
+      {#- Output ` name` only (no value) for boolean attributes -#}
+      {% if options.optional is true and options.value is true %}
+        {% set ns.attributesHtml = '{} {}'.format(ns.attributesHtml, name | escape) %}
+      {#- Skip optional empty attributes or output ` name="value"` pair by default -#}
+      {% elif (options.optional is true and options.value not in [undefined, null, None] and options.value is not false) or options.optional is not true %}
+        {% set ns.attributesHtml = '{} {}="{}"'.format(ns.attributesHtml, name | escape, options.value | escape) %}
+      {% endif %}
+    {% endfor %}
+  {% endif -%}
+
+  {{- ns.attributesHtml | safe -}}
+{%- endmacro %}

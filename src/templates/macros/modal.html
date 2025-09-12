@@ -1,0 +1,106 @@
+{% macro modal(params) %}
+{% from "macros/attributes.html" import attributes %}
+
+{#- Set default values -#}
+{% set id = params.id if params.id else "modal" %}
+{% set title = params.title if params.title else None %}
+{% set subtitle = params.subtitle if params.subtitle else None %}
+{% set icon = params.icon if params.icon else None %}
+{% set size = params.size if params.size else "lg" %}
+{% set auto_open = params.auto_open if params.auto_open else False %}
+{% set show_close_button = params.show_close_button if params.show_close_button else True %}
+{% set custom_classes = params.custom_classes if params.custom_classes else "" %}
+{% set header_classes = params.header_classes if params.header_classes else "" %}
+{% set body_classes = params.body_classes if params.body_classes else "" %}
+{% set body_id = params.body_id if params.body_id else None %}
+{% set footer_classes = params.footer_classes if params.footer_classes else "" %}
+{% set enable_keyboard_close = params.enable_keyboard_close if params.enable_keyboard_close else True %}
+
+{% set size_classes = {
+    'sm': 'max-w-md',
+    'lg': 'max-w-4xl',
+    'xl': 'max-w-6xl'
+} %}
+
+<!-- Modal Overlay -->
+<div id="{{ id }}-overlay"
+     class="fixed inset-0 z-50 items-center justify-center {% if auto_open %}flex{% else %}hidden{% endif %} bg-black bg-opacity-50"
+     {% if enable_keyboard_close %}
+     _="on click
+        add .hidden to me
+        remove .flex from me
+        on keydown[key=='Escape'] from document
+        add .hidden to me
+        remove .flex from me
+        on openModal(rowId) from body
+        if rowId is '{{ id.replace('modal-', '') }}'
+          remove .hidden from me
+          remove .hidden from #{{ id }}-content
+          add .flex to me
+          add .scale-100 to #{{ id }}-content"
+     {% else %}
+     _="on click
+        add .hidden to me
+        remove .flex from me
+        on openModal(rowId) from body
+        if rowId is '{{ id.replace('modal-', '') }}'
+          remove .hidden from me
+          remove .hidden from #{{ id }}-content
+          add .flex to me
+          add .scale-100 to #{{ id }}-content"
+     {% endif %}>
+
+    <!-- Modal Content -->
+    <div id="{{ id }}-content"
+         class="relative z-50 {% if auto_open %}flex scale-100{% else %}hidden scale-95{% endif %} flex-col w-full {{ size_classes[size] }} mx-4 bg-white rounded-2xl shadow-2xl max-h-[90vh] transition-all duration-300 transform {{ custom_classes }}"
+         _="on click halt bubbling">
+
+        {% if title or subtitle or icon or show_close_button %}
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-gray-200 {{ header_classes }}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    {% if icon %}
+                    <div class="flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full">
+                        {{ icon|safe }}
+                    </div>
+                    {% endif %}
+                    <div>
+                        {% if title %}
+                        <h3 class="text-lg font-semibold text-gray-900">
+                            {{ title }}
+                        </h3>
+                        {% endif %}
+                        {% if subtitle %}
+                        <p class="text-sm text-gray-600">
+                            {{ subtitle }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if show_close_button %}
+                <button type="button"
+                        class="text-gray-400 transition-colors hover:text-gray-600"
+                        _="on click
+                           add .hidden to #{{ id }}-overlay
+                           add .hidden to #{{ id }}-content
+                           remove .flex from #{{ id }}-overlay
+                           remove .scale-100 from #{{ id }}-content">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Modal Body -->
+        <div{% if body_id %} id="{{ body_id }}"{% endif %} class="overflow-y-auto max-h-[70vh] {{ body_classes }}">
+            {{ caller() }}
+        </div>
+    </div>
+</div>
+{% endmacro %}
+

@@ -1,0 +1,44 @@
+{% from "macros/flash_messages.html" import flash_messages %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Octovox{% endblock %}</title>
+    <!-- CSS Assets -->
+    {% assets "css_all" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-100 overflow-x-hidden">
+    {% block body %}
+
+    {{ flash_messages() }}
+
+    <div id="main-content" class="w-full overflow-x-hidden">
+        <!-- Main content area -->
+        <main class="flex-grow px-4 py-8 w-full max-w-none">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- Footer -->
+        {% block footer %}
+        {% endblock %}
+    </div>
+    {% endblock body %}
+
+    <!-- JavaScript Assets -->
+    {% assets "js_all" %}<script src="{{ ASSET_URL }}" defer></script>{% endassets %}
+
+    <!-- Flash Messages Hyperscript Functions -->
+    <script type="text/hyperscript">
+      def dismissToast(toast)
+        add .translate-x-full to toast
+        add .opacity-0 to toast
+        wait 300ms
+        remove toast
+      end
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

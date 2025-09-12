@@ -1,0 +1,107 @@
+{% from "jinja_ui_kit/components/select/macro.html" import select %}
+
+{% macro toggle_select(params) %}
+  {#
+    Macro for creating a select input that shows/hides content based on selection
+    Uses the select.html macro internally for consistent rendering.
+
+    Has identical signature to select macro - accepts a params object with the same properties.
+
+    @param {object} params - Configuration object for the select (same as select macro)
+    @param {string} params.name - Name attribute (required)
+    @param {string} params.id - ID attribute (required)
+    @param {array} params.items - List of options as {value: "option_value", text: "Option Text"}
+    @param {string} [params.value] - Default selected value (matches against item.value)
+    @param {string|object} [params.label] - Label text or object with text/classes
+    @param {string} [params.classes] - Additional CSS classes for select element
+    @param {object} [params.attributes] - Additional HTML attributes
+
+    Note: This macro automatically adds hyperscript behavior to show/hide elements
+    with IDs matching the option values, and enables/disables form controls within them.
+  #}
+
+  {# Clone params and add toggle-specific hyperscript behavior #}
+  {% set toggle_params = params.copy() %}
+
+  {# Merge existing attributes with hyperscript behavior #}
+  {% set existing_attrs = toggle_params.get('attributes', {}) %}
+  {% set hyperscript_attrs = existing_attrs.copy() %}
+  {% set _ = hyperscript_attrs.update({
+    '_': "on load or change
+        set optionValues to []
+        for option in my options
+          append option.value to optionValues
+        end
+
+        set selectedValue to my value
+
+        for value in optionValues
+          set targetElement to document.getElementById(value)
+          if targetElement
+            if value is selectedValue
+              remove .hidden from targetElement
+              for input in targetElement.querySelectorAll('input, select, textarea, button')
+                remove @disabled from input
+              end
+            else
+              add .hidden to targetElement
+              for input in targetElement.querySelectorAll('input, select, textarea, button')
+                add @disabled to the input
+              end
+            end
+          end
+        end
+      end"
+  }) %}
+  {% set _ = toggle_params.update({'attributes': hyperscript_attrs}) %}
+
+  {# Create select using the select macro with toggle functionality #}
+  {{ select(toggle_params) }}
+{% endmacro %}
+
+{# Example usage
+{% from "toggle_select.html" import toggle_select %}
+
+{# Define options #}
+{% set payment_options = [
+  {'value': 'credit_card_section', 'text': 'Credit Card'},
+  {'value': 'paypal_section', 'text': 'PayPal'},
+  {'value': 'bank_transfer_section', 'text': 'Bank Transfer'}
+] %}
+
+{# Use the macro - new object-based syntax (same as select macro) #}
+<div class="max-w-md p-6 mx-auto bg-white rounded-lg shadow-md">
+  {{ toggle_select({
+    "name": 'payment_method',
+    "id": 'payment_selector',
+    "items": payment_options,
+    "value": 'credit_card_section',
+    "label": 'Select Payment Method:',
+    "classes": 'mb-4'
+  }) }}
+
+  {# Define toggle-able content sections with Tailwind classes #}
+  <div id="credit_card_section" class="space-y-4">
+    <h3 class="text-lg font-medium text-gray-900">Credit Card Details</h3>
+    <div class="space-y-3">
+      <input type="text" name="card_number" placeholder="Card Number" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+      <input type="text" name="expiry_date" placeholder="MM/YY" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+    </div>
+  </div>
+
+  <div id="paypal_section" class="hidden space-y-4">
+    <h3 class="text-lg font-medium text-gray-900">PayPal Details</h3>
+    <div class="space-y-3">
+      <input type="email" name="paypal_email" placeholder="PayPal Email" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+    </div>
+  </div>
+
+  <div id="bank_transfer_section" class="hidden space-y-4">
+    <h3 class="text-lg font-medium text-gray-900">Bank Transfer Details</h3>
+    <div class="space-y-3">
+      <input type="text" name="account_name" placeholder="Account Name" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+      <input type="text" name="account_number" placeholder="Account Number" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+    </div>
+  </div>
+</div>
+#}

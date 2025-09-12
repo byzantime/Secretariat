@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Node_modules
+node_modules/
+
+# VSCode
+.vscode/
+
+# Serena
+.serena/
+
+# Logging
+logs/
+
+# Environments
+venv/
+
+# Dotenv files
+.env*
+
+# ML model cache directory
+model_cache/
+
+# Audio samples directory
+audio_samples/
+
+# Client configs directory.  Configs contain SIP passwords.
+configs/*
+!configs/base_config.yaml
+
+# Google cloud key file :grimace:
+sapient*.json
+
+# Roo Code configuration files
+.clinerules-default
+.roo/
+.roomodes
+memory-bank/
+
+# Asset bundles (auto-generated)
+src/static/.webassets-cache/
+src/static/css/packed-*.min.css
+src/static/js/packed-*.min.js
+
+# Ignore project TODO
+TODO.md

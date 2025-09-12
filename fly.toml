@@ -1,0 +1,56 @@
+# fly.toml app configuration file generated for octovox-igor on 2025-08-01T10:41:15+12:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'src'
+primary_region = 'syd'
+org = 'octovox'
+
+[build]
+  dockerfile = './Dockerfile'
+
+[deploy]
+  strategy = "canary"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = false
+  min_machines_running = 1
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/health'
+
+[[services]]
+  protocol = 'udp'
+  internal_port = 5060
+
+  [[services.ports]]
+    port = 5060
+
+[[services]]
+  protocol = 'tcp'
+  internal_port = 5060
+
+  [[services.ports]]
+    port = 5060
+
+[[services]]
+  protocol = 'tcp'
+  internal_port = 5061
+
+  [[services.ports]]
+    port = 5061
+    handlers = ['tls']
+
+[[vm]]
+  memory = '2gb'
+  cpu_kind = 'shared'
+  cpus = 1

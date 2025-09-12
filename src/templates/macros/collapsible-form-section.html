@@ -1,0 +1,51 @@
+{#
+  Collapsible form section macro for organizing form fields
+
+  Parameters:
+  - title: Section title (required)
+  - content: HTML content for the section (required, use {% call %} pattern)
+  - collapsed: Whether section starts collapsed (default: false)
+  - classes: Additional classes for the section container
+  - id: Optional ID for the section (auto-generated if not provided)
+
+  Example Usage:
+  {% call collapsible_form_section('Address Information', collapsed=true) %}
+    <!-- Form fields go here -->
+    {{ input({...}) }}
+  {% endcall %}
+#}
+{% macro collapsible_form_section(title, collapsed=false, classes="", id=none) %}
+{% from "macros/attributes.html" import attributes %}
+
+{% set section_id = id or (title | lower | replace(' ', '-') | replace('/', '-') | replace('&', 'and') | replace('(', '') | replace(')', '') | replace('?', '') | replace('!', '') | replace('.', '') | replace(',', '') | replace(':', '') | replace(';', '')) %}
+{% set content_id = section_id ~ '-content' %}
+
+<div class="mb-6 bg-white border border-gray-200 rounded-lg shadow-sm {{ classes }}">
+  <!-- Section Header with Toggle -->
+  <button
+    type="button"
+    class="flex items-center justify-between w-full p-4 text-left transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset rounded-t-lg"
+    aria-expanded="{{ 'false' if collapsed else 'true' }}"
+    aria-controls="{{ content_id }}"
+    _="on click
+         toggle @aria-expanded
+         toggle .hidden on #{{ content_id }}
+         toggle .rotate-180 on .chevron-icon in me"
+  >
+    <h3 class="text-lg font-semibold text-gray-900">{{ title }}</h3>
+    <svg class="chevron-icon w-5 h-5 text-gray-500 transform transition-transform duration-200 {{ 'rotate-180' if not collapsed else '' }}"
+         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+    </svg>
+  </button>
+
+  <!-- Section Content -->
+  <div
+    id="{{ content_id }}"
+    class="p-4 pt-0 space-y-4 {{ 'hidden' if collapsed else '' }}"
+    aria-labelledby="{{ section_id }}-header"
+  >
+    {{ caller() }}
+  </div>
+</div>
+{% endmacro %}

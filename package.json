@@ -1,0 +1,16 @@
+{
+  "name": "Octovox",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "tailwindcss -i ./src/static/css/input.css -o ./src/static/css/styles.css --minify"
+  },
+  "dependencies": {
+    "tailwindcss": "^3.4.6"
+  },
+  "engines": {
+    "node": ">=22.9.0"
+  },
+  "devDependencies": {
+    "tailwind-scrollbar": "^3.1.0"
+  }
+}

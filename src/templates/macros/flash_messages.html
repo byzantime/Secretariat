@@ -1,0 +1,73 @@
+{% from "macros/attributes.html" import attributes -%}
+
+{% macro flash_messages(oob_swap=False) %}
+{#
+  Renders flash messages as toast notifications
+
+  Automatically fetches messages from Flask's get_flashed_messages()
+  Supports: success, error, warning message types
+  Uses Tailwind for styling and Hyperscript for behavior
+#}
+{% set messages = get_flashed_messages(with_categories=true) %}
+<!-- Flash Messages Container -->
+<div id="flash-container"
+     class="fixed top-4 right-4 z-50 space-y-3 w-80"
+     {% if oob_swap %}hx-swap-oob="true"{% endif %}
+     _="on load wait 100ms then add .opacity-100 to me">
+{% if messages %}
+  {% for category, message in messages %}
+  {% set toast_styles = {
+    'success': 'bg-green-50 border-green-200 text-green-800',
+    'error': 'bg-red-50 border-red-200 text-red-800',
+    'warning': 'bg-yellow-50 border-yellow-200 text-yellow-800'
+  } %}
+  {% set icon_styles = {
+    'success': 'text-green-400 fa-circle-check',
+    'error': 'text-red-400 fa-circle-xmark',
+    'warning': 'text-yellow-400 fa-triangle-exclamation'
+  } %}
+  {% set auto_dismiss_delay = {
+    'success': 4000,
+    'error': 8000,
+    'warning': 6000
+  } %}
+
+  <div class="flash-toast opacity-0 transform translate-x-full transition-all duration-300 ease-out
+              {{ toast_styles.get(category, 'bg-gray-50 border-gray-200 text-gray-800') }}
+              border rounded-lg shadow-lg p-4 max-w-sm"
+       _="on load
+            wait 50ms
+            then remove .translate-x-full from me
+            then add .opacity-100 to me
+            then wait {{ auto_dismiss_delay.get(category, 5000) }}ms
+            then call dismissToast(me)">
+
+    <div class="flex items-start">
+      <!-- Icon -->
+      <div class="flex-shrink-0">
+        <i class="fas {{ icon_styles.get(category, 'fa-info-circle') }} {{ icon_styles.get(category, 'text-gray-400').split()[0] }} text-lg"></i>
+      </div>
+
+      <!-- Message Content -->
+      <div class="ml-3 flex-1">
+        <p class="text-sm font-medium">
+          {{ message }}
+        </p>
+      </div>
+
+      <!-- Dismiss Button -->
+      <div class="ml-4 flex-shrink-0">
+        <button type="button"
+                class="inline-flex rounded-md p-1.5 hover:bg-black hover:bg-opacity-10 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors"
+                _="on click call dismissToast(closest .flash-toast)"
+                aria-label="Dismiss">
+          <i class="fas fa-times text-sm opacity-60 hover:opacity-80"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+</div>
+
+{% endmacro %}

@@ -1,0 +1,177 @@
+{% macro drawer() %}
+    <!-- Push-style Drawer Component -->
+    <div id="drawer-content"
+          class="fixed top-0 left-0 z-30 h-full transform translate-x-[-100%] bg-white shadow-lg w-full md:w-96 border-r border-gray-200 flex flex-col"
+          _="
+            -- Drawer event handlers
+            on openDrawer from body
+              remove .{'translate-x-[-100%]'} from me
+              call updateDrawerLayout()
+            end
+
+            on closeDrawer from body
+              add .{'translate-x-[-100%]'} to me
+              call updateDrawerLayout()
+            end
+
+            on toggleDrawer from body
+              toggle .{'translate-x-[-100%]'} on me
+              call updateDrawerLayout()
+            end
+
+            -- Keyboard shortcut support
+            on keydown[key=='['] from document
+              if not (document.activeElement.tagName == 'INPUT' or document.activeElement.tagName == 'TEXTAREA')
+                trigger toggleDrawer on body
+              end
+            end
+
+            -- Layout update function
+            def updateDrawerLayout()
+              set mainContent to #main-content
+              set mainHeader to #main-header
+              set isOpen to not (me matches '.translate-x-\\[-100\\%\\]')
+
+              if isOpen
+                -- Open state: push content right on desktop, overlay on mobile
+                if window.innerWidth >= 768
+                  set drawerWidth to getDrawerWidth()
+                  set mainContent.style.marginLeft to drawerWidth + 'px'
+                  set mainContent.style.width to 'calc(100% - ' + drawerWidth + 'px)'
+                  set me.style.width to drawerWidth + 'px'
+                else
+                  set mainContent.style.marginLeft to '0'
+                  set mainContent.style.width to '100%'
+                  set me.style.width to '100vw'
+                end
+                add .py-2 to mainHeader
+                remove .p-4 from mainHeader
+              else
+                -- Closed state: return to normal
+                set mainContent.style.marginLeft to '0'
+                set mainContent.style.width to '100%'
+                remove .py-2 from mainHeader
+                add .p-4 to mainHeader
+                set me.style.width to ''
+              end
+            end
+
+            -- Get drawer width from localStorage or default
+            def getDrawerWidth()
+              set storedWidth to localStorage.getItem('drawerWidth')
+              if storedWidth
+                set width to parseInt(storedWidth)
+                -- Constrain width between min and max
+                if width < 320
+                  set width to 320
+                else
+                  if width > 800
+                    set width to 800
+                  end
+                end
+                return width
+              else
+                return 384  -- Default 24rem in pixels
+              end
+            end
+
+            -- Handle window resize
+            on resize from window
+              call updateDrawerLayout()
+            end
+          ">
+        <!-- Drawer Header -->
+        <div class="flex items-center justify-between flex-shrink-0 p-4 border-b border-gray-200 bg-gray-50">
+            <h2 class="text-lg font-semibold text-gray-800">Call Controls</h2>
+            <button id="drawer-close"
+                    class="p-2 text-gray-500 transition-colors rounded-md hover:bg-gray-200 hover:text-gray-700"
+                    _="on click trigger closeDrawer on body">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Drawer Content -->
+        <div class="flex-1 p-4 overflow-y-auto">
+            {{ caller() }}
+        </div>
+
+        <!-- Resize Handle - only visible on desktop -->
+        <div id="drawer-resize-handle"
+             class="absolute top-0 right-0 w-1 h-full bg-gray-300 hover:bg-blue-400 cursor-col-resize opacity-0 md:opacity-100 transition-colors duration-200 hidden md:block"
+             _="
+               -- Global resize state variables
+               on load
+                 set window.drawerResizing to false
+                 set window.drawerStartX to 0
+                 set window.drawerStartWidth to 0
+               end
+
+               -- Start resizing on mouse down
+               on mousedown
+                 set window.drawerResizing to true
+                 set window.drawerStartX to event.clientX
+                 set window.drawerStartWidth to #drawer-content.offsetWidth
+                 add .select-none to document.body
+                 add .cursor-col-resize to document.body
+                 -- Disable transitions during resize
+                 set #drawer-content.style.transition to 'none'
+                 set #main-content.style.transition to 'none'
+               end
+
+               -- Handle mouse move during resize
+               on mousemove from document
+                 if window.drawerResizing
+                   set deltaX to event.clientX - window.drawerStartX
+                   set newWidth to window.drawerStartWidth + deltaX
+
+                   -- Constrain width between 320px and 800px
+                   if newWidth < 320
+                     set newWidth to 320
+                   else if newWidth > 800
+                     set newWidth to 800
+                   end
+
+                   -- Update drawer width
+                   set #drawer-content.style.width to newWidth + 'px'
+
+                   -- Update main content layout
+                   set mainContent to #main-content
+                   set mainContent.style.marginLeft to newWidth + 'px'
+                   set mainContent.style.width to 'calc(100% - ' + newWidth + 'px)'
+
+                   -- Store width in localStorage
+                   localStorage.setItem('drawerWidth', newWidth)
+                 end
+               end
+
+               -- Stop resizing on mouse up (anywhere in document)
+               on mouseup from document
+                 if window.drawerResizing
+                   set window.drawerResizing to false
+                   remove .select-none from document.body
+                   remove .cursor-col-resize from document.body
+                   -- Re-enable transitions
+                   set #drawer-content.style.transition to ''
+                   set #main-content.style.transition to ''
+                 end
+               end
+
+               -- Fallback: reset cursor if mouse leaves document
+               on mouseleave from document
+                 if window.drawerResizing
+                   remove .cursor-col-resize from document.body
+                 end
+               end
+
+               -- Prevent text selection during resize
+               on selectstart from document
+                 if window.drawerResizing
+                   halt the event
+                 end
+               end
+             ">
+        </div>
+    </div>
+{% endmacro %}
