@@ -36,29 +36,23 @@ class LLMService:
 
     def init_app(self, app):
         """Initialise LLM service with app."""
-        api_key = app.config.get("ANTHROPIC_API_KEY")
-        if api_key:
-            # Custom HTTP client with optimized settings
-            http_client = httpx.AsyncClient(
-                limits=httpx.Limits(
-                    max_keepalive_connections=20,
-                    max_connections=100,
-                    keepalive_expiry=30.0,
-                ),
-                timeout=30.0,
-                http2=True,  # Enable HTTP/2
-            )
-            self.client = AsyncAnthropic(
-                api_key=api_key,
-                max_retries=1,
-                http_client=http_client,
-            )
-            app.logger.info("LLMService initialised with Anthropic API")
-        else:
-            self.client = None
-            app.logger.info(
-                "LLMService initialised without Anthropic API (no API key provided)"
-            )
+        api_key = app.config["ANTHROPIC_API_KEY"]
+        # Custom HTTP client with optimized settings
+        http_client = httpx.AsyncClient(
+            limits=httpx.Limits(
+                max_keepalive_connections=20,
+                max_connections=100,
+                keepalive_expiry=30.0,
+            ),
+            timeout=30.0,
+            http2=True,  # Enable HTTP/2
+        )
+        self.client = AsyncAnthropic(
+            api_key=api_key,
+            max_retries=1,
+            http_client=http_client,
+        )
+        app.logger.info("LLMService initialised with Anthropic API")
         app.extensions["llm"] = self
 
     async def respond_with_context(
@@ -77,10 +71,6 @@ class LLMService:
         )
 
         self._log_request_debug(conversation.id, system_prompt, tools)
-
-        if not self.client:
-            yield "LLM service is not configured (missing ANTHROPIC_API_KEY)"
-            return
 
         async with self.client.messages.stream(**request_params) as stream:
             async for text in stream.text_stream:
@@ -270,9 +260,6 @@ class LLMService:
         Returns:
             str: Generated response
         """
-        if not self.client:
-            return "LLM service is not configured (missing ANTHROPIC_API_KEY)"
-
         try:
             request_params = self._build_request_params(
                 system_prompt=system_prompt,

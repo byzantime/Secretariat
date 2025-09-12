@@ -113,52 +113,41 @@ async def automation_events():
 
 async def _run_automation_task(session_id: str, task: str):
     """Run automation task in background."""
-    try:
-        current_app.logger.info(f"Starting automation task: {task}")
+    current_app.logger.info(f"Starting automation task: {task}")
 
-        # Get the LLM service to trigger the web automation tool
-        llm_service = current_app.extensions.get("llm")
-        if not llm_service:
-            await _broadcast_event(
-                "automation_status", "Error: LLM service not available"
-            )
-            return
+    # Get the LLM service to trigger the web automation tool
+    llm_service = current_app.extensions.get("llm")
+    if not llm_service:
+        await _broadcast_event("automation_status", "Error: LLM service not available")
+        return
 
-        # Create a mock conversation object for the tool execution
-        class MockConversation:
-            def __init__(self):
-                self.id = session_id
+    # Create a mock conversation object for the tool execution
+    class MockConversation:
+        def __init__(self):
+            self.id = session_id
 
-        conversation = MockConversation()
+    conversation = MockConversation()
 
-        # Get the web automation tool
-        tool_manager = current_app.extensions.get("tool_manager")
-        if not tool_manager:
-            await _broadcast_event(
-                "automation_status", "Error: Tool manager not available"
-            )
-            return
+    # Get the web automation tool
+    tool_manager = current_app.extensions.get("tool_manager")
+    if not tool_manager:
+        await _broadcast_event("automation_status", "Error: Tool manager not available")
+        return
 
-        web_automation_tool = tool_manager.get_tool("web_automation")
-        if not web_automation_tool:
-            await _broadcast_event(
-                "automation_status", "Error: Web automation tool not available"
-            )
-            return
+    web_automation_tool = tool_manager.get_tool("web_automation")
+    if not web_automation_tool:
+        await _broadcast_event(
+            "automation_status", "Error: Web automation tool not available"
+        )
+        return
 
-        await _broadcast_event("automation_status", "Starting web automation...")
+    await _broadcast_event("automation_status", "Starting web automation...")
 
-        # Execute the automation tool
-        result = await web_automation_tool.execute({"task": task}, conversation)
+    # Execute the automation tool - let exceptions bubble up
+    result = await web_automation_tool.execute({"task": task}, conversation)
 
-        await _broadcast_event("automation_status", f"Automation completed: {result}")
-        await _broadcast_event("automation_complete", result)
-
-    except Exception as e:
-        error_msg = f"Automation failed: {str(e)}"
-        current_app.logger.error(error_msg, exc_info=True)
-        await _broadcast_event("automation_status", error_msg)
-        await _broadcast_event("automation_complete", error_msg)
+    await _broadcast_event("automation_status", f"Automation completed: {result}")
+    await _broadcast_event("automation_complete", result)
 
 
 async def _broadcast_event(event_type: str, data: str):

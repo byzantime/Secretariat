@@ -18,8 +18,8 @@ class WebAutomationTool(Tool):
 
     @property
     def description(self) -> str:
-        return """Automate web browsing tasks using an AI-controlled browser. Can perform tasks like online shopping, 
-        form filling, information gathering, and other web-based activities. Provides visual feedback through screenshots 
+        return """Automate web browsing tasks using an AI-controlled browser. Can perform tasks like online shopping,
+        form filling, information gathering, and other web-based activities. Provides visual feedback through screenshots
         and can request human intervention when needed (e.g., for captchas or complex interactions)."""
 
     @property
@@ -83,22 +83,17 @@ class WebAutomationSession:
 
     async def execute(self) -> str:
         """Execute the automation task."""
+        # Start browser session
+        success = await self.browser.start_session(headless=True)
+        if not success:
+            return "Failed to start browser session"
+
+        await self._emit_status("Starting web automation session...")
+
         try:
-            # Start browser session
-            success = await self.browser.start_session(headless=True)
-            if not success:
-                return "Failed to start browser session"
-
-            await self._emit_status("Starting web automation session...")
-
             # Begin automation loop
             result = await self._automation_loop()
-
             return result
-
-        except Exception as e:
-            current_app.logger.error(f"Error in web automation: {e}")
-            return f"Automation failed with error: {str(e)}"
         finally:
             # Always cleanup browser session
             await self.browser.close_session()
@@ -171,12 +166,12 @@ class WebAutomationSession:
 
     async def _llm_determine_starting_url(self) -> str:
         """Use LLM to determine starting URL based on task."""
-        system_prompt = """You are helping determine the best starting website for an automation task. 
+        system_prompt = """You are helping determine the best starting website for an automation task.
         Based on the task description, provide the most appropriate starting URL.
-        
+
         For shopping tasks, consider popular grocery/retail websites.
         For booking tasks, consider relevant booking platforms.
-        
+
         Respond with just the URL, nothing else."""
 
         messages = [{
@@ -184,33 +179,30 @@ class WebAutomationSession:
             "content": f"Task: {self.task}\n\nWhat website should I start with?",
         }]
 
-        llm_service = current_app.extensions.get("llm")
-        try:
-            response = await llm_service._call_llm(
-                system_prompt=system_prompt,
-                messages=messages,
-                max_tokens=100,
-                conversation_id=self.conversation.id,
-            )
-            # Extract URL from response (basic validation)
-            response = response.strip()
-            if response.startswith(("http://", "https://")):
-                return response
-            elif response.startswith("www."):
-                return f"https://{response}"
-            else:
-                # Try to construct URL
-                return f"https://{response}" if "." in response else None
-        except Exception as e:
-            current_app.logger.error(f"Error getting starting URL from LLM: {e}")
-            return None
+        llm_service = current_app.extensions["llm"]
+        response = await llm_service._call_llm(
+            system_prompt=system_prompt,
+            messages=messages,
+            max_tokens=100,
+            conversation_id=self.conversation.id,
+        )
+        current_app.logger.info(f"LLM response: {response}")
+        # Extract URL from response (basic validation)
+        response = response.strip()
+        if response.startswith(("http://", "https://")):
+            return response
+        elif response.startswith("www."):
+            return f"https://{response}"
+        else:
+            # Try to construct URL
+            return f"https://{response}" if "." in response else None
 
     async def _llm_get_next_action(self, page_info: Dict, screenshot: str) -> Dict:
         """Get next action from LLM based on current page state."""
-        system_prompt = """You are controlling a web browser to complete automation tasks. 
-        
+        system_prompt = """You are controlling a web browser to complete automation tasks.
+
         Based on the current page information and screenshot, determine the next action to take.
-        
+
         Available actions:
         - click_text: Click on text/button (provide text to find)
         - type_field: Type in input field (provide field name/id and text)
@@ -218,14 +210,14 @@ class WebAutomationSession:
         - wait: Wait for page to load
         - intervention: Request human help (for captchas, complex forms, etc.)
         - completed: Task is finished
-        
+
         Respond with JSON containing:
         {"action": "action_name", "params": {...}, "reasoning": "why this action"}"""
 
         page_summary = f"""
         Current URL: {page_info.get('url', 'Unknown')}
         Page Title: {page_info.get('title', 'Unknown')}
-        
+
         Task: {self.task}
         Current Step: {self.current_step}
         """
@@ -249,35 +241,17 @@ class WebAutomationSession:
         }]
 
         llm_service = current_app.extensions.get("llm")
-        try:
-            response = await llm_service._call_llm(
-                system_prompt=system_prompt,
-                messages=messages,
-                max_tokens=300,
-                conversation_id=self.conversation.id,
-            )
+        response = await llm_service._call_llm(
+            system_prompt=system_prompt,
+            messages=messages,
+            max_tokens=300,
+            conversation_id=self.conversation.id,
+        )
 
-            # Try to parse JSON response
-            try:
-                action_data = json.loads(response)
-                current_app.logger.info(f"LLM suggested action: {action_data}")
-                return action_data
-            except json.JSONDecodeError:
-                # If not valid JSON, try to extract action from text
-                current_app.logger.warning(f"LLM response not valid JSON: {response}")
-                return {
-                    "action": "intervention",
-                    "params": {"message": "LLM response unclear"},
-                    "reasoning": "Failed to parse action",
-                }
-
-        except Exception as e:
-            current_app.logger.error(f"Error getting next action from LLM: {e}")
-            return {
-                "action": "intervention",
-                "params": {"message": "LLM error"},
-                "reasoning": str(e),
-            }
+        # Try to parse JSON response - let JSON errors bubble up
+        action_data = json.loads(response)
+        current_app.logger.info(f"LLM suggested action: {action_data}")
+        return action_data
 
     async def _execute_action(self, action: Dict) -> Dict:
         """Execute the specified action."""
@@ -287,81 +261,74 @@ class WebAutomationSession:
 
         await self._emit_status(f"Executing: {action_type} - {reasoning}")
 
-        try:
-            if action_type == "click_text":
-                text = params.get("text")
-                if not text:
-                    return {
-                        "error": True,
-                        "message": "No text provided for click action",
-                    }
+        if action_type == "click_text":
+            text = params.get("text")
+            if not text:
+                return {
+                    "error": True,
+                    "message": "No text provided for click action",
+                }
 
-                success = await self.browser.click_element_by_text(text)
-                if success:
-                    await self._take_and_emit_screenshot()
-                    return {"success": True, "message": f"Clicked on '{text}'"}
-                else:
-                    return {
-                        "intervention_needed": True,
-                        "message": (
-                            f"Could not find clickable element with text '{text}'."
-                            " Please help."
-                        ),
-                    }
-
-            elif action_type == "type_field":
-                field = params.get("field")
-                text = params.get("text")
-                if not field or not text:
-                    return {
-                        "error": True,
-                        "message": "Missing field or text for type action",
-                    }
-
-                success = await self.browser.type_in_field(field, text)
-                if success:
-                    await self._take_and_emit_screenshot()
-                    return {"success": True, "message": f"Typed in field '{field}'"}
-                else:
-                    return {
-                        "intervention_needed": True,
-                        "message": (
-                            f"Could not find input field '{field}'. Please help."
-                        ),
-                    }
-
-            elif action_type == "navigate":
-                url = params.get("url")
-                if not url:
-                    return {"error": True, "message": "No URL provided for navigation"}
-
-                success = await self.browser.navigate_to(url)
-                if success:
-                    await self._take_and_emit_screenshot()
-                    return {"success": True, "message": f"Navigated to {url}"}
-                else:
-                    return {"error": True, "message": f"Failed to navigate to {url}"}
-
-            elif action_type == "wait":
-                duration = params.get("duration", 3)
-                await asyncio.sleep(duration)
+            success = await self.browser.click_element_by_text(text)
+            if success:
                 await self._take_and_emit_screenshot()
-                return {"success": True, "message": f"Waited {duration} seconds"}
-
-            elif action_type == "intervention":
-                message = params.get("message", "Human intervention needed")
-                return {"intervention_needed": True, "message": message}
-
-            elif action_type == "completed":
-                message = params.get("message", "Task completed successfully")
-                return {"completed": True, "message": message}
-
+                return {"success": True, "message": f"Clicked on '{text}'"}
             else:
-                return {"error": True, "message": f"Unknown action type: {action_type}"}
+                return {
+                    "intervention_needed": True,
+                    "message": (
+                        f"Could not find clickable element with text '{text}'."
+                        " Please help."
+                    ),
+                }
 
-        except Exception as e:
-            current_app.logger.error(f"Error executing action {action_type}: {e}")
-            return {"error": True, "message": f"Action execution failed: {str(e)}"}
+        elif action_type == "type_field":
+            field = params.get("field")
+            text = params.get("text")
+            if not field or not text:
+                return {
+                    "error": True,
+                    "message": "Missing field or text for type action",
+                }
+
+            success = await self.browser.type_in_field(field, text)
+            if success:
+                await self._take_and_emit_screenshot()
+                return {"success": True, "message": f"Typed in field '{field}'"}
+            else:
+                return {
+                    "intervention_needed": True,
+                    "message": f"Could not find input field '{field}'. Please help.",
+                }
+
+        elif action_type == "navigate":
+            url = params.get("url")
+            if not url:
+                return {"error": True, "message": "No URL provided for navigation"}
+
+            success = await self.browser.navigate_to(url)
+            if success:
+                await self._take_and_emit_screenshot()
+                return {"success": True, "message": f"Navigated to {url}"}
+            else:
+                return {"error": True, "message": f"Failed to navigate to {url}"}
+
+        elif action_type == "wait":
+            duration = params.get("duration", 3)
+            await asyncio.sleep(duration)
+            await self._take_and_emit_screenshot()
+            return {"success": True, "message": f"Waited {duration} seconds"}
+
+        elif action_type == "intervention":
+            message = params.get("message", "Human intervention needed")
+            return {"intervention_needed": True, "message": message}
+
+        elif action_type == "completed":
+            message = params.get("message", "Task completed successfully")
+            return {"completed": True, "message": message}
+
+        else:
+            return {"error": True, "message": f"Unknown action type: {action_type}"}
 
     async def _take_and_emit_screenshot(self):
         """Take screenshot and emit via SSE."""
@@ -372,39 +339,29 @@ class WebAutomationSession:
     async def _emit_status(self, message: str):
         """Emit status update via SSE."""
         current_app.logger.info(f"Automation status: {message}")
-        try:
-            # Import here to avoid circular imports
-            from src.blueprints.automation import _broadcast_event
+        # Import here to avoid circular imports
+        from src.blueprints.automation import _broadcast_event
 
-            await _broadcast_event("automation_status", message)
-        except Exception as e:
-            current_app.logger.error(f"Failed to emit status: {e}")
+        await _broadcast_event("automation_status", message)
 
     async def _emit_screenshot(self, screenshot_base64: str):
         """Emit screenshot via SSE."""
-        try:
-            # Import here to avoid circular imports
-            from src.blueprints.automation import _broadcast_event
+        # Import here to avoid circular imports
+        from src.blueprints.automation import _broadcast_event
 
-            screenshot_html = (
-                f'<img src="data:image/png;base64,{screenshot_base64}" class="w-full'
-                ' h-auto rounded" alt="Browser Screenshot">'
-            )
-            await _broadcast_event("automation_screenshot", screenshot_html)
-        except Exception as e:
-            current_app.logger.error(f"Failed to emit screenshot: {e}")
+        screenshot_html = (
+            f'<img src="data:image/png;base64,{screenshot_base64}" class="w-full'
+            ' h-auto rounded" alt="Browser Screenshot">'
+        )
+        await _broadcast_event("automation_screenshot", screenshot_html)
 
     async def _request_intervention(self, message: str) -> str:
         """Request human intervention."""
         await self._emit_status(f"Requesting intervention: {message}")
-        try:
-            # Import here to avoid circular imports
-            from src.blueprints.automation import _broadcast_event
+        # Import here to avoid circular imports
+        from src.blueprints.automation import _broadcast_event
 
-            await _broadcast_event("automation_intervention", message)
-            # For now, just wait a bit and continue
-            await asyncio.sleep(10)
-            return "continue"
-        except Exception as e:
-            current_app.logger.error(f"Failed to request intervention: {e}")
-            return "continue"
+        await _broadcast_event("automation_intervention", message)
+        # For now, just wait a bit and continue
+        await asyncio.sleep(10)
+        return "continue"

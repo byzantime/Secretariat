@@ -21,7 +21,7 @@ class Config:
     DATABASE_NAME = os.environ.get("DATABASE_NAME", "src")
     DATABASE_URL = f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 
-    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+    ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 
     # Basic agent configuration for skeleton
     AGENT_NAME = os.environ.get("AGENT_NAME", "Src Assistant")
