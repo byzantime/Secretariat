@@ -121,8 +121,8 @@ async def chat_events():
             current_app.logger.error(f"SSE error for client {client_id}: {e}")
             # Try to send error event before closing
             try:
-                yield f"event: error\ndata: Connection error\n\n"
-            except:
+                yield "event: error\ndata: Connection error\n\n"
+            except:  # noqa
                 pass
         finally:
             # Clean up client
@@ -154,6 +154,9 @@ async def _process_chat_message(conversation: Conversation, message: str):
     llm_service = current_app.extensions["llm"]
     await _broadcast_event("status_update", "Generating response...")
 
+    current_app.logger.info(
+        f"Conversation history: {conversation.conversation_history}"
+    )
     try:
         # Process the conversation with LLM
         await llm_service.process_and_respond(conversation.id)

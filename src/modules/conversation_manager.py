@@ -12,8 +12,6 @@ from typing import Optional
 from uuid import UUID
 from uuid import uuid4
 
-from quart import current_app
-
 
 @dataclass(slots=True)
 class Conversation:
