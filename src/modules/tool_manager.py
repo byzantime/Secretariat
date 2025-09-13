@@ -85,12 +85,9 @@ class ToolManager:
     def _register_builtin_tools(self):
         """Register hard-coded list of available tools."""
         from src.tools.fallback_tool import FallbackTool
-        from src.tools.web_automation_tool import WebAutomationTool
 
         # Pre-register all available tools
-        builtin_tools = [
-            WebAutomationTool(),
-        ]
+        builtin_tools = []
 
         # Register the fallback tool separately (not included in regular tool list)
         self.fallback_tool = FallbackTool()

@@ -63,7 +63,7 @@ async def send_message():
 
     # Notify chat started
     await _broadcast_event("automation_started", "")
-    await _broadcast_event("automation_status", "Thinking...")
+    await _broadcast_event("status_update", "Thinking...")
 
     # Start chat processing in background and store task on conversation
     task = asyncio.create_task(_process_chat_message(conversation, message))
@@ -80,7 +80,7 @@ async def stop_chat():
         await _current_conversation.cancel_processing()
 
     await _send_assistant_message("Chat stopped by user")
-    await _broadcast_event("automation_status", "Stopped")
+    await _broadcast_event("status_update", "Stopped")
     await _broadcast_event("automation_complete", "")
     return "", 200
 
@@ -152,17 +152,15 @@ async def _process_chat_message(conversation: Conversation, message: str):
 
     # Get the LLM service
     llm_service = current_app.extensions["llm"]
-
-    await _send_assistant_message("Processing your message...")
-    await _broadcast_event("automation_status", "Generating response...")
+    await _broadcast_event("status_update", "Generating response...")
 
     try:
         # Process the conversation with LLM
         await llm_service.process_and_respond(conversation.id)
-        await _broadcast_event("automation_status", "Response complete")
+        await _broadcast_event("status_update", "Response complete")
     except asyncio.CancelledError:
         current_app.logger.info("Chat processing was cancelled")
-        await _broadcast_event("automation_status", "Cancelled by user")
+        await _broadcast_event("status_update", "Cancelled by user")
         raise  # Re-raise to properly handle the cancellation
     finally:
         await _broadcast_event("automation_complete", "")
