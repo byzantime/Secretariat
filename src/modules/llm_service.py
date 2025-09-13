@@ -14,7 +14,6 @@ import httpx
 from anthropic import AsyncAnthropic
 from quart import current_app
 
-from src.modules.decorators import processing_state
 from src.modules.text_utils import chunk_text_by_sentence
 
 
@@ -81,17 +80,6 @@ class LLMService:
         await self._update_token_counts(conversation, final_message)
         yield final_message
 
-    async def emit_llm_chunk(self, conversation, chunk: str):
-        """Emit an LLM chunk event for TTS consumption."""
-        current_app.logger.debug(
-            f"LLM emitting text for conversation {conversation.id}: '{chunk}'"
-        )
-        data = {"text": chunk}
-        await current_app.extensions["event_handler"].emit_to_services(
-            "speak_stream", conversation.id, data
-        )
-
-    @processing_state("LLM")
     async def process_and_respond(self, conversation_id: UUID):
         """Process conversation history and generate a response."""
         conversation = await self._get_conversation(conversation_id)
@@ -121,10 +109,6 @@ class LLMService:
 
                 # If no tool was used, we're done
                 if not tool_used:
-                    break
-
-                # Check if conversation was interrupted
-                if await conversation.is_interrupted():
                     break
 
                 # Get updated conversation history and tools for next iteration
@@ -229,14 +213,12 @@ class LLMService:
         return buffer, tool_used
 
     async def _emit_remaining_text(self, conversation, buffer: str, last_emit: int):
-        """Emit any remaining text if not interrupted."""
-        if not await conversation.is_interrupted():
-            remaining_text = buffer[last_emit:].strip()
-            if remaining_text:
-                current_app.logger.debug(
-                    f"LLM emitting final chunk: '{remaining_text[:50]}...'"
-                )
-                await self.emit_llm_chunk(conversation, remaining_text)
+        """Emit any remaining text."""
+        remaining_text = buffer[last_emit:].strip()
+        if remaining_text:
+            current_app.logger.debug(
+                f"LLM emitting final chunk: '{remaining_text[:50]}...'"
+            )
 
     async def _handle_general_error(self, conversation, error):
         """Handle general errors during LLM processing."""
@@ -485,10 +467,7 @@ class LLMService:
         chars_processed = 0
 
         for chunk in completed_chunks:
-            if await conversation.is_interrupted():
-                break
             current_app.logger.debug(f"LLM emitting chunk: '{chunk[:50]}...'")
-            await self.emit_llm_chunk(conversation, chunk)
             asyncio.create_task(
                 conversation.add_to_role_convo_history(
                     "assistant",

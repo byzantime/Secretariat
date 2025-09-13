@@ -12,6 +12,8 @@ from typing import Optional
 from uuid import UUID
 from uuid import uuid4
 
+from quart import current_app
+
 
 @dataclass(slots=True)
 class Conversation:
@@ -21,7 +23,7 @@ class Conversation:
     user_id: Optional[int] = None
     conversation_history: List[Dict[str, Any]] = field(default_factory=list)
     _history_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    interrupt_event: asyncio.Event = field(default_factory=asyncio.Event)
+    processing_task: Optional[asyncio.Task] = None
 
     # Timestamps
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -94,18 +96,33 @@ class Conversation:
                         {"type": "text", "text": existing_text + text}
                     ]
 
-    async def is_interrupted(self) -> bool:
-        """Check if conversation is interrupted."""
-        return self.interrupt_event.is_set()
+            # Broadcast UI update for assistant messages
+            if role == "assistant" and final:
+                await self._broadcast_assistant_message(text)
 
-    async def interrupt(self):
-        """Interrupt the conversation."""
-        self.interrupt_event.set()
+    async def _broadcast_assistant_message(self, message: str):
+        """Broadcast an assistant message to the UI via SSE."""
+        # Import here to avoid circular imports
+        from src.routes import _broadcast_event
 
-    async def clear_interrupt(self):
-        """Clear interrupt state."""
-        if self.interrupt_event.is_set():
-            self.interrupt_event.clear()
+        html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+            <div class="font-semibold text-gray-800">Assistant</div>
+            <div class="text-gray-700">{message}</div>
+        </div>"""
+        await _broadcast_event("conversation_message", html_message)
+
+    def set_processing_task(self, task: asyncio.Task):
+        """Set the current processing task."""
+        self.processing_task = task
+
+    async def cancel_processing(self):
+        """Cancel the current processing task."""
+        if self.processing_task and not self.processing_task.done():
+            self.processing_task.cancel()
+            try:
+                await self.processing_task
+            except asyncio.CancelledError:
+                pass  # Expected when cancelling
 
 
 class ConversationManager:
@@ -142,4 +159,4 @@ class ConversationManager:
         conversation = self.conversations.get(conversation_id)
         if conversation and not conversation.ended_at:
             conversation.ended_at = datetime.now(timezone.utc)
-            await conversation.interrupt()
+            await conversation.cancel_processing()

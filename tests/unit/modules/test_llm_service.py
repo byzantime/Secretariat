@@ -38,11 +38,10 @@ def mock_conversation():
     """Create a mock conversation object."""
     conv = MagicMock()
     conv.id = uuid4()
-    conv.is_interrupted = AsyncMock(return_value=False)
     conv.add_to_role_convo_history = AsyncMock()
     conv.get_convo_history_for_llm = AsyncMock(return_value=[])
-    conv.set_processing_state = AsyncMock()
-    conv.clear_interrupt = AsyncMock()
+    conv.set_processing_task = MagicMock()
+    conv.cancel_processing = AsyncMock()
     return conv
 
 
@@ -96,14 +95,13 @@ class TestLLMServiceChunking:
             )
 
         with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
+            with patch.object(
+                llm_service, "respond_with_context", return_value=mock_stream()
+            ):
                 with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
+                    llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
                 ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
+                    await llm_service.process_and_respond(conversation_id)
 
         # Should have one chunk with the expected content
         assert len(emitted_chunks) == 1
@@ -131,14 +129,13 @@ class TestLLMServiceChunking:
             yield " sentence. Fourth sentence."
 
         with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
+            with patch.object(
+                llm_service, "respond_with_context", return_value=mock_stream()
+            ):
                 with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
+                    llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
                 ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
+                    await llm_service.process_and_respond(conversation_id)
 
         # Should have multiple chunks
         assert len(emitted_chunks) >= 3  # At least first, second, and final chunks
@@ -173,14 +170,13 @@ class TestLLMServiceChunking:
             yield " final text"  # This will become the final chunk
 
         with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
+            with patch.object(
+                llm_service, "respond_with_context", return_value=mock_stream()
+            ):
                 with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
+                    llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
                 ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
+                    await llm_service.process_and_respond(conversation_id)
 
         # Should have at least 3 chunks: sentence one, sentence two, final partial
         assert len(emitted_chunks) >= 3
@@ -194,50 +190,6 @@ class TestLLMServiceChunking:
         assert "Complete sentence one." in combined_text
         assert "Complete sentence two." in combined_text
         assert "Partial final text" in combined_text
-
-    @pytest.mark.asyncio
-    async def test_interruption_handling(
-        self, llm_service, conversation_id, mock_conversation, mock_app_context
-    ):
-        """Test that chunk emission stops correctly when conversation is interrupted."""
-        # Setup mock conversation manager
-        mock_app_context.extensions[
-            "conversation_manager"
-        ].get_conversation.return_value = mock_conversation
-
-        # Mock interruption after first chunk
-        call_count = 0
-
-        async def mock_is_interrupted():
-            nonlocal call_count
-            call_count += 1
-            return call_count > 1  # Interrupt after first emission
-
-        mock_conversation.is_interrupted = mock_is_interrupted
-
-        # Track emit_llm_chunk calls
-        emitted_chunks = []
-
-        async def mock_emit_llm_chunk(conversation, chunk):
-            emitted_chunks.append({"chunk": chunk})
-
-        # Mock streaming response - would normally produce multiple chunks
-        async def mock_stream():
-            yield "First sentence. Second sentence. Third sentence."
-
-        with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
-                with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
-                ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
-
-        # Should have only emitted the first chunk before interruption
-        assert len(emitted_chunks) == 1
-        assert "First sentence." in emitted_chunks[0]["chunk"]
 
     @pytest.mark.asyncio
     async def test_buffer_threshold_processing(
@@ -262,14 +214,13 @@ class TestLLMServiceChunking:
             yield " Final sentence."  # Additional content
 
         with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
+            with patch.object(
+                llm_service, "respond_with_context", return_value=mock_stream()
+            ):
                 with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
+                    llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
                 ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
+                    await llm_service.process_and_respond(conversation_id)
 
         # Should have emitted chunks when threshold is crossed
         assert len(emitted_chunks) >= 1
@@ -300,14 +251,13 @@ class TestLLMServiceChunking:
             yield "First sentence. Second sentence. Third sentence. Fourth sentence."
 
         with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
+            with patch.object(
+                llm_service, "respond_with_context", return_value=mock_stream()
+            ):
                 with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
+                    llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
                 ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
+                    await llm_service.process_and_respond(conversation_id)
 
         # Should have multiple chunks
         assert len(emitted_chunks) >= 3
@@ -340,14 +290,13 @@ class TestLLMServiceChunking:
             yield "Complete sentence one. Complete sentence two."
 
         with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
+            with patch.object(
+                llm_service, "respond_with_context", return_value=mock_stream()
+            ):
                 with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
+                    llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
                 ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
+                    await llm_service.process_and_respond(conversation_id)
 
         # Verify all emitted chunks have content (no empty chunks)
         for chunk_data in emitted_chunks:
@@ -384,14 +333,13 @@ class TestLLMServiceChunking:
             yield " complete sentence."
 
         with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
+            with patch.object(
+                llm_service, "respond_with_context", return_value=mock_stream()
+            ):
                 with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
+                    llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
                 ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
+                    await llm_service.process_and_respond(conversation_id)
 
         # Should have multiple chunks from different processing cycles
         assert len(emitted_chunks) >= 3
@@ -424,14 +372,13 @@ class TestLLMServiceChunking:
             yield "Test sentence. Another sentence."
 
         with patch("src.modules.llm_service.current_app", mock_app_context):
-            with patch("src.modules.decorators.current_app", mock_app_context):
+            with patch.object(
+                llm_service, "respond_with_context", return_value=mock_stream()
+            ):
                 with patch.object(
-                    llm_service, "respond_with_context", return_value=mock_stream()
+                    llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
                 ):
-                    with patch.object(
-                        llm_service, "emit_llm_chunk", side_effect=mock_emit_llm_chunk
-                    ):
-                        await llm_service.process_and_respond(conversation_id)
+                    await llm_service.process_and_respond(conversation_id)
 
         # Verify emit_llm_chunk was called with correct parameters
         assert len(emit_calls) >= 1

@@ -138,3 +138,4 @@ Optional:
 - Uses pytest with asyncio support
 - Test markers: `asyncio`, `integration`, `stress`
 - Test configuration in `pyproject.toml`
+- Never attempt to start a development server - the app is already running locally with auto-reload

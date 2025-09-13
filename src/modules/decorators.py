@@ -24,26 +24,6 @@ def inject_user_id(user_id):
     return decorator
 
 
-def processing_state(state_name):
-    """Manage processing state for a method."""
-
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(self, conversation_id, *args, **kwargs):
-            conversation_manager = current_app.extensions["conversation_manager"]
-            conversation = await conversation_manager.get_conversation(conversation_id)
-            await conversation.set_processing_state(state_name, True)
-            try:
-                return await func(self, conversation_id, *args, **kwargs)
-            finally:
-                await conversation.set_processing_state(state_name, False)
-                await conversation.clear_interrupt()
-
-        return wrapper
-
-    return decorator
-
-
 def _format_execution_time(func_name, execution_time, is_error=False, error=None):
     """Format execution time with appropriate units and precision."""
     if execution_time < 1.0:

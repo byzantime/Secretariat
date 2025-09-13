@@ -243,8 +243,9 @@ class TestToolManagerInitialization:
             assert manager.app == mock_app
             assert mock_app.extensions["tool_manager"] == manager
 
-            # Check builtin tools registered (no telephony tools in simplified app)
-            assert len(manager.tools) == 0  # No builtin tools
+            # Check builtin tools registered
+            assert len(manager.tools) == 1  # WebAutomationTool is registered
+            assert "web_automation" in manager.tools
             assert manager.fallback_tool == mock_fallback
 
             # Check logging
@@ -556,8 +557,9 @@ class TestIntegration:
             manager = ToolManager()
             manager.init_app(mock_app)
 
-            # Should have registered builtin tools (no telephony tools in simplified app)
-            assert len(manager.tools) == 0  # No builtin tools
+            # Should have registered builtin tools
+            assert len(manager.tools) == 1  # WebAutomationTool is registered
+            assert "web_automation" in manager.tools
             assert manager.fallback_tool is not None
             assert manager.fallback_tool.name == "__fallback__"
 

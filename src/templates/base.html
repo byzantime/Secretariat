@@ -12,7 +12,7 @@
 <body class="overflow-x-hidden"
       hx-log="true"
       hx-ext="sse"
-      sse-connect="{{ url_for('automation.automation_events') }}"
+      sse-connect="{{ url_for('main.chat_events') }}"
       sse-close="close">
     {% block body %}
 

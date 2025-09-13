@@ -340,14 +340,14 @@ class WebAutomationSession:
         """Emit status update via SSE."""
         current_app.logger.info(f"Automation status: {message}")
         # Import here to avoid circular imports
-        from src.blueprints.automation import _broadcast_event
+        from src.routes import _broadcast_event
 
         await _broadcast_event("automation_status", message)
 
     async def _emit_screenshot(self, screenshot_base64: str):
         """Emit screenshot via SSE."""
         # Import here to avoid circular imports
-        from src.blueprints.automation import _broadcast_event
+        from src.routes import _broadcast_event
 
         screenshot_html = (
             f'<img src="data:image/png;base64,{screenshot_base64}" class="w-full'
@@ -359,7 +359,7 @@ class WebAutomationSession:
         """Request human intervention."""
         await self._emit_status(f"Requesting intervention: {message}")
         # Import here to avoid circular imports
-        from src.blueprints.automation import _broadcast_event
+        from src.routes import _broadcast_event
 
         await _broadcast_event("automation_intervention", message)
         # For now, just wait a bit and continue

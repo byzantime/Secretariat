@@ -20,7 +20,7 @@
         <div class="max-w-4xl mx-auto space-y-4 p-4">
             <div class="text-center text-gray-500 py-8">
                 <h1 class="text-2xl font-semibold mb-2">Apparat AI Assistant</h1>
-                <p>Tell me what you'd like me to do, and I'll help you automate it.</p>
+                <p>Ask me anything and I'll help you with tools and information.</p>
             </div>
         </div>
     </div>
@@ -39,7 +39,7 @@
     <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 h-20">
         <div class="max-w-4xl mx-auto">
             <form id="input-form"
-                  hx-post="/automation/start"
+                  hx-post="/message"
                   hx-trigger="submit"
                   hx-swap="none"
                   class="flex gap-3 items-center h-12"
@@ -47,10 +47,10 @@
 
                 <div class="flex-1">
                     <input type="text"
-                           id="task-input"
-                           name="task"
+                           id="message-input"
+                           name="message"
                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-12"
-                           placeholder="What would you like me to do?"
+                           placeholder="Ask me anything..."
                            required
                            autofocus
                            _="on load focus() me
@@ -69,7 +69,7 @@
 
                 <!-- Stop button (inline, hidden by default) -->
                 <button id="stop-btn"
-                        hx-post="/automation/stop"
+                        hx-post="/stop"
                         hx-swap="none"
                         class="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 hidden transition-colors h-12 ml-2"
                         _="on htmx:beforeRequest add @disabled to me
@@ -90,16 +90,16 @@
     -- Handle SSE events for automation state management
     on htmx:sseMessage[detail.type == 'automation_started'] from body
         remove .hidden from #stop-btn
-        add @disabled to #task-input
+        add @disabled to #message-input
         add @disabled to #submit-btn
     end
 
     on htmx:sseMessage[detail.type == 'automation_complete'] from body
         add .hidden to #stop-btn
-        remove @disabled from #task-input
+        remove @disabled from #message-input
         remove @disabled from #submit-btn
-        set #task-input.value to ''
-        call #task-input.focus()
+        set #message-input.value to ''
+        call #message-input.focus()
     end
 
     on htmx:sseMessage[detail.type == 'conversation_message'] from body
