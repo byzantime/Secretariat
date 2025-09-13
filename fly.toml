@@ -1,11 +1,9 @@
-# fly.toml app configuration file generated for octovox-igor on 2025-08-01T10:41:15+12:00
-#
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 app = 'src'
 primary_region = 'syd'
-org = 'octovox'
+org = 'apparat'
 
 [build]
   dockerfile = './Dockerfile'

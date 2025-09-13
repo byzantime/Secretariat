@@ -2,15 +2,14 @@
 
 import asyncio
 import base64
-import io
 import os
 import tempfile
-from typing import Dict, Optional, Tuple
+from typing import Dict
+from typing import Optional
 
 from quart import current_app
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait

@@ -260,28 +260,24 @@ class LLMService:
         Returns:
             str: Generated response
         """
-        try:
-            request_params = self._build_request_params(
-                system_prompt=system_prompt,
-                messages=messages,
-                max_tokens=max_tokens or self.DEFAULT_MAX_TOKENS,
-                temperature=(
-                    temperature if temperature is not None else self.DEFAULT_TEMPERATURE
-                ),
-                tools=tools,
-            )
+        request_params = self._build_request_params(
+            system_prompt=system_prompt,
+            messages=messages,
+            max_tokens=max_tokens or self.DEFAULT_MAX_TOKENS,
+            temperature=(
+                temperature if temperature is not None else self.DEFAULT_TEMPERATURE
+            ),
+            tools=tools,
+        )
 
-            response = await self.client.messages.create(**request_params)
+        response = await self.client.messages.create(**request_params)
 
-            # Track tokens from response usage
-            if conversation_id is not None:
-                conversation = await self._get_conversation(conversation_id)
-                await self._update_token_counts(conversation, response)
+        # Track tokens from response usage
+        if conversation_id is not None:
+            conversation = await self._get_conversation(conversation_id)
+            await self._update_token_counts(conversation, response)
 
-            return response.content[0].text
-        except Exception as e:
-            current_app.logger.error(f"Error in LLM call: {str(e)}")
-            raise
+        return response.content[0].text
 
     async def extract_info(
         self, text: str, extraction_prompt: str, conversation_id: Optional[UUID] = None

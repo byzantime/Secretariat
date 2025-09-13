@@ -7,6 +7,10 @@
           {
             "type": "command",
             "command": "ruff check . --fix"
+          },
+          {
+            "type": "command",
+            "command": "black ."
           }
         ]
       }

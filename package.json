@@ -1,5 +1,5 @@
 {
-  "name": "Octovox",
+  "name": "Apparat",
   "version": "0.0.1",
   "scripts": {
     "build": "tailwindcss -i ./src/static/css/input.css -o ./src/static/css/styles.css --minify"

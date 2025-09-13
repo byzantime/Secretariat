@@ -4,12 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Octovox{% endblock %}</title>
+    <title>{% block title %}Apparat{% endblock %}</title>
     <!-- CSS Assets -->
     {% assets "css_all" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-100 overflow-x-hidden">
+<body class="overflow-x-hidden">
     {% block body %}
 
     {{ flash_messages() }}

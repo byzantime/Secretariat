@@ -2,18 +2,20 @@
 
 import asyncio
 from typing import Dict
+from uuid import UUID
 
 from quart import Blueprint
 from quart import current_app
-from quart import g
 from quart import make_response
 from quart import request
 from quart import stream_with_context
 
+from src.modules.conversation_manager import Conversation
+
 automation_bp = Blueprint("automation", __name__, url_prefix="/automation")
 
-# In-memory storage for automation sessions
-_automation_sessions: Dict[str, dict] = {}
+# In-memory storage for automation sessions (using conversation IDs)
+_automation_sessions: Dict[UUID, dict] = {}
 _sse_clients: Dict[str, asyncio.Queue] = {}
 
 
@@ -26,28 +28,45 @@ async def start_automation():
     if not task:
         return "Task is required", 400
 
-    # Create a session ID (for now, use a simple counter)
-    session_id = f"session_{len(_automation_sessions) + 1}"
+    # Create a new conversation for this automation
+    conversation_manager = current_app.extensions.get("conversation_manager")
+    if not conversation_manager:
+        return "Conversation manager not available", 500
 
-    # Store session info
-    _automation_sessions[session_id] = {
+    conversation = await conversation_manager.create_conversation()
+
+    # Store session info using conversation ID
+    _automation_sessions[conversation.id] = {
         "task": task,
         "status": "starting",
         "messages": [],
     }
 
-    # Start automation in background
-    asyncio.create_task(_run_automation_task(session_id, task))
+    # Send user message to conversation area
+    await _broadcast_event(
+        "conversation_message",
+        '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4"><div'
+        ' class="font-semibold text-blue-800">You</div><div'
+        f' class="text-blue-700">{task}</div></div>',
+    )
 
-    return f"Automation started with session ID: {session_id}", 200
+    # Notify automation started
+    await _broadcast_event("automation_started", "")
+    await _broadcast_event("automation_status", "Starting automation...")
+
+    # Start automation in background with conversation object
+    asyncio.create_task(_run_automation_task(conversation, task))
+
+    return "", 200
 
 
 @automation_bp.route("/stop", methods=["POST"])
 async def stop_automation():
     """Stop running automation."""
-    # For now, just send a stop signal
-    await _broadcast_event("automation_complete", "Automation stopped by user")
-    return "Automation stopped", 200
+    await _send_assistant_message("Automation stopped by user")
+    await _broadcast_event("automation_status", "Stopped")
+    await _broadcast_event("automation_complete", "")
+    return "", 200
 
 
 @automation_bp.route("/respond", methods=["POST"])
@@ -78,7 +97,7 @@ async def automation_events():
 
         try:
             # Send initial connection message
-            yield f"event: connected\ndata: Connected to automation events\n\n"
+            yield "event: connected\ndata: Connected to automation events\n\n"
 
             while True:
                 try:
@@ -89,7 +108,7 @@ async def automation_events():
                     yield f"event: {event_type}\ndata: {data}\n\n"
                 except asyncio.TimeoutError:
                     # Send heartbeat
-                    yield f"event: heartbeat\ndata: ping\n\n"
+                    yield "event: heartbeat\ndata: ping\n\n"
 
         except asyncio.CancelledError:
             current_app.logger.info(f"SSE client {client_id} disconnected")
@@ -111,43 +130,64 @@ async def automation_events():
     return response
 
 
-async def _run_automation_task(session_id: str, task: str):
+async def _run_automation_task(conversation: Conversation, task: str):
     """Run automation task in background."""
     current_app.logger.info(f"Starting automation task: {task}")
 
-    # Get the LLM service to trigger the web automation tool
-    llm_service = current_app.extensions.get("llm")
-    if not llm_service:
-        await _broadcast_event("automation_status", "Error: LLM service not available")
-        return
+    try:
+        # Get the LLM service to trigger the web automation tool
+        llm_service = current_app.extensions.get("llm")
+        if not llm_service:
+            await _send_assistant_message("Error: LLM service not available")
+            await _broadcast_event(
+                "automation_status", "Error: LLM service not available"
+            )
+            await _broadcast_event("automation_complete", "")
+            return
 
-    # Create a mock conversation object for the tool execution
-    class MockConversation:
-        def __init__(self):
-            self.id = session_id
+        # Get the web automation tool
+        tool_manager = current_app.extensions.get("tool_manager")
+        if not tool_manager:
+            await _send_assistant_message("Error: Tool manager not available")
+            await _broadcast_event(
+                "automation_status", "Error: Tool manager not available"
+            )
+            await _broadcast_event("automation_complete", "")
+            return
 
-    conversation = MockConversation()
+        web_automation_tool = tool_manager.get_tool("web_automation")
+        if not web_automation_tool:
+            await _send_assistant_message("Error: Web automation tool not available")
+            await _broadcast_event(
+                "automation_status", "Error: Web automation tool not available"
+            )
+            await _broadcast_event("automation_complete", "")
+            return
 
-    # Get the web automation tool
-    tool_manager = current_app.extensions.get("tool_manager")
-    if not tool_manager:
-        await _broadcast_event("automation_status", "Error: Tool manager not available")
-        return
+        await _send_assistant_message("Starting web automation...")
+        await _broadcast_event("automation_status", "Running automation...")
 
-    web_automation_tool = tool_manager.get_tool("web_automation")
-    if not web_automation_tool:
-        await _broadcast_event(
-            "automation_status", "Error: Web automation tool not available"
-        )
-        return
+        # Execute the automation tool - let exceptions bubble up
+        result = await web_automation_tool.execute({"task": task}, conversation)
 
-    await _broadcast_event("automation_status", "Starting web automation...")
+        await _send_assistant_message(f"Automation completed successfully!")
+        await _broadcast_event("automation_status", "Completed")
+        await _broadcast_event("automation_complete", "")
 
-    # Execute the automation tool - let exceptions bubble up
-    result = await web_automation_tool.execute({"task": task}, conversation)
+    except Exception as e:
+        error_msg = f"Automation failed: {str(e)}"
+        await _send_assistant_message(error_msg)
+        await _broadcast_event("automation_status", "Failed")
+        await _broadcast_event("automation_complete", "")
 
-    await _broadcast_event("automation_status", f"Automation completed: {result}")
-    await _broadcast_event("automation_complete", result)
+
+async def _send_assistant_message(message: str):
+    """Send an assistant message to the conversation area."""
+    html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+        <div class="font-semibold text-gray-800">Assistant</div>
+        <div class="text-gray-700">{message}</div>
+    </div>"""
+    await _broadcast_event("conversation_message", html_message)
 
 
 async def _broadcast_event(event_type: str, data: str):
