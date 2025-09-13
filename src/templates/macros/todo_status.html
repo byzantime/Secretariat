@@ -1,0 +1,55 @@
+{% macro todo_status(todos) %}
+{%- if todos -%}
+  {%- set active_task = none -%}
+  {%- for todo in todos -%}
+    {%- if todo.state == 'in_progress' -%}
+      {%- set active_task = todo.description -%}
+      {%- break -%}
+    {%- endif -%}
+  {%- endfor -%}
+
+  {%- if active_task -%}
+    <div class="space-y-1">
+      <div class="font-medium">{{ active_task }}…</div>
+      <div class="text-sm">
+        <div class="flex items-start">
+          <div class="space-y-0.5">
+            {%- for todo in todos -%}
+              <div class="flex items-center gap-2">
+                {%- if todo.state == 'completed' -%}
+                  <span class="text-green-600">☑</span>
+                  <span class="line-through text-gray-500">{{ todo.description }}</span>
+                {%- elif todo.state == 'in_progress' -%}
+                  <span>☐</span>
+                  <span class="font-semibold">{{ todo.description }}</span>
+                {%- else -%}
+                  <span>☐</span>
+                  <span>{{ todo.description }}</span>
+                {%- endif -%}
+              </div>
+            {%- endfor -%}
+          </div>
+        </div>
+      </div>
+    </div>
+  {%- else -%}
+    <div class="text-sm">
+      <div class="flex items-start">
+        <div class="space-y-0.5">
+          {%- for todo in todos -%}
+            <div class="flex items-center gap-2">
+              {%- if todo.state == 'completed' -%}
+                <span class="text-green-600">☑</span>
+                <span class="line-through text-gray-500">{{ todo.description }}</span>
+              {%- else -%}
+                <span>☐</span>
+                <span>{{ todo.description }}</span>
+              {%- endif -%}
+            </div>
+          {%- endfor -%}
+        </div>
+      </div>
+    </div>
+  {%- endif -%}
+{%- endif -%}
+{% endmacro %}

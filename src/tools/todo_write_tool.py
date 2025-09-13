@@ -93,6 +93,9 @@ Limit exactly ONE task as in_progress at any time."""
         # Replace entire todo list atomically
         todos_storage[conversation_id] = new_todos
 
+        # Broadcast todo status update
+        await self._broadcast_todo_status_update()
+
         # Return summary
         state_counts = {}
         for todo in new_todos:
@@ -108,3 +111,14 @@ Limit exactly ONE task as in_progress at any time."""
             summary += f" ({', '.join(parts)})"
 
         return summary
+
+    async def _broadcast_todo_status_update(self):
+        """Broadcast todo status update to the UI."""
+        try:
+            # Import here to avoid circular imports
+            from src.routes import _broadcast_todo_status
+
+            await _broadcast_todo_status()
+        except ImportError:
+            # If routes module isn't available, silently skip
+            pass

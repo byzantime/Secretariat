@@ -13,6 +13,7 @@ from quart_auth import current_user
 
 from src.blueprints.auth import auth_bp
 from src.modules.conversation_manager import Conversation
+from src.tools.todo_storage import todos_storage
 
 # Create blueprints for different parts of the app
 main_bp = Blueprint("main", __name__)
@@ -20,6 +21,29 @@ main_bp = Blueprint("main", __name__)
 # In-memory storage for SSE clients and conversations
 _sse_clients: Dict[str, asyncio.Queue] = {}
 _current_conversation = None
+
+
+async def _broadcast_todo_status():
+    """Broadcast current todo status to status line."""
+    global _current_conversation
+    if not _current_conversation:
+        await _broadcast_event("status_update", "Ready")
+        return
+
+    todos = todos_storage.get(_current_conversation.id, [])
+    if not todos:
+        await _broadcast_event("status_update", "Ready")
+        return
+
+    # Render the todo status using the Jinja macro
+    from quart import render_template_string
+
+    template = """
+{%- from "macros/todo_status.html" import todo_status -%}
+{{ todo_status(todos) }}
+"""
+    html_content = await render_template_string(template, todos=todos)
+    await _broadcast_event("status_update", html_content.strip())
 
 
 @main_bp.route("/health")
@@ -50,6 +74,8 @@ async def send_message():
     if _current_conversation is None:
         _current_conversation = await conversation_manager.create_conversation()
         current_app.logger.info(f"Created new conversation: {_current_conversation.id}")
+        # Refresh todo status for new conversation
+        await _broadcast_todo_status()
 
     conversation = _current_conversation
 
@@ -160,7 +186,8 @@ async def _process_chat_message(conversation: Conversation, message: str):
     try:
         # Process the conversation with LLM
         await llm_service.process_and_respond(conversation.id)
-        await _broadcast_event("status_update", "Response complete")
+        # Refresh todo status after processing (in case todos were updated)
+        await _broadcast_todo_status()
     except asyncio.CancelledError:
         current_app.logger.info("Chat processing was cancelled")
         await _broadcast_event("status_update", "Cancelled by user")
