@@ -13,10 +13,9 @@
     <div id="conversation-area"
          class="flex-1 overflow-y-auto bg-white"
          style="margin-bottom: 7rem;"
-         hx-ext="sse"
-         sse-connect="/automation/events"
-         sse-swap="conversation_message:beforeend"
-         _="on htmx:afterSwap scroll to bottom smoothly">
+         sse-swap="conversation_message"
+         hx-swap="beforeend"
+         _="on htmx:afterSwap go to the bottom of me smoothly">
 
         <div class="max-w-4xl mx-auto space-y-4 p-4">
             <div class="text-center text-gray-500 py-8">
@@ -27,12 +26,11 @@
     </div>
 
     <!-- Status line (fixed above input) -->
-    <div id="status-line"
-         class="fixed bottom-20 left-0 right-0 bg-gray-50 border-t border-gray-200 px-4 py-2 text-sm text-gray-600 z-40"
-         hx-ext="sse"
-         sse-connect="/automation/events"
-         sse-swap="automation_status">
-        <div class="max-w-4xl mx-auto">
+    <div class="fixed bottom-20 left-0 right-0 bg-gray-50 border-t border-gray-200 px-4 py-2 text-sm text-gray-600 z-40">
+        <div class="max-w-4xl mx-auto"
+             id="status-line"
+             sse-swap="automation_status"
+             hx-swap="innerHTML">
             Ready
         </div>
     </div>
@@ -57,8 +55,8 @@
                            autofocus
                            _="on load focus() me
                               on keydown[key=='Enter' and not shiftKey]
-                                 prevent the event's default
-                                 then trigger submit on closest <form/>">
+                                 halt the event
+                                 then trigger submit on #input-form">
                 </div>
 
                 <button type="submit"
@@ -105,8 +103,7 @@
     end
 
     on htmx:sseMessage[detail.type == 'conversation_message'] from body
-        wait 100ms then
-        tell #conversation-area to scroll to bottom smoothly
+        wait 100ms then go to the bottom of #conversation-area smoothly
     end
 </script>
 {% endblock %}

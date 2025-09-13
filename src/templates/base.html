@@ -9,7 +9,11 @@
     {% assets "css_all" %}<link href="{{ ASSET_URL }}" rel="stylesheet">{% endassets %}
     {% block extra_head %}{% endblock %}
 </head>
-<body class="overflow-x-hidden">
+<body class="overflow-x-hidden"
+      hx-log="true"
+      hx-ext="sse"
+      sse-connect="{{ url_for('automation.automation_events') }}"
+      sse-close="close">
     {% block body %}
 
     {{ flash_messages() }}

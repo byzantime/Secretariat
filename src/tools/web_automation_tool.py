@@ -53,7 +53,7 @@ class WebAutomationTool(Tool):
         current_app.logger.info(f"Starting web automation task: {task}")
 
         # Get browser service
-        browser = current_app.extensions.get("browser")
+        browser = current_app.extensions["browser"]
         if not browser:
             return "Browser service not available"
 
@@ -240,7 +240,7 @@ class WebAutomationSession:
             ],
         }]
 
-        llm_service = current_app.extensions.get("llm")
+        llm_service = current_app.extensions["llm"]
         response = await llm_service._call_llm(
             system_prompt=system_prompt,
             messages=messages,

@@ -15,7 +15,6 @@ from src.modules.conversation_manager import Conversation
 automation_bp = Blueprint("automation", __name__, url_prefix="/automation")
 
 # In-memory storage for automation sessions (using conversation IDs)
-_automation_sessions: Dict[UUID, dict] = {}
 _sse_clients: Dict[str, asyncio.Queue] = {}
 
 
@@ -29,18 +28,8 @@ async def start_automation():
         return "Task is required", 400
 
     # Create a new conversation for this automation
-    conversation_manager = current_app.extensions.get("conversation_manager")
-    if not conversation_manager:
-        return "Conversation manager not available", 500
-
+    conversation_manager = current_app.extensions["conversation_manager"]
     conversation = await conversation_manager.create_conversation()
-
-    # Store session info using conversation ID
-    _automation_sessions[conversation.id] = {
-        "task": task,
-        "status": "starting",
-        "messages": [],
-    }
 
     # Send user message to conversation area
     await _broadcast_event(
@@ -95,6 +84,8 @@ async def automation_events():
         client_queue = asyncio.Queue()
         _sse_clients[client_id] = client_queue
 
+        current_app.logger.info(f"SSE client {client_id} connected")
+
         try:
             # Send initial connection message
             yield "event: connected\ndata: Connected to automation events\n\n"
@@ -105,7 +96,8 @@ async def automation_events():
                     event_type, data = await asyncio.wait_for(
                         client_queue.get(), timeout=30.0
                     )
-                    yield f"event: {event_type}\ndata: {data}\n\n"
+                    # Ensure proper UTF-8 encoding and escape newlines in data
+                    yield f"event: {event_type}\ndata: {data.replace('\n', '')}\n\n"
                 except asyncio.TimeoutError:
                     # Send heartbeat
                     yield "event: heartbeat\ndata: ping\n\n"
@@ -114,9 +106,15 @@ async def automation_events():
             current_app.logger.info(f"SSE client {client_id} disconnected")
         except Exception as e:
             current_app.logger.error(f"SSE error for client {client_id}: {e}")
+            # Try to send error event before closing
+            try:
+                yield f"event: error\ndata: Connection error\n\n"
+            except:
+                pass
         finally:
             # Clean up client
             _sse_clients.pop(client_id, None)
+            current_app.logger.info(f"SSE client {client_id} cleaned up")
 
     response = await make_response(
         event_stream(),
@@ -124,6 +122,8 @@ async def automation_events():
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "Access-Control-Allow-Origin": "*",  # CORS support
         },
     )
     response.timeout = None
@@ -134,51 +134,20 @@ async def _run_automation_task(conversation: Conversation, task: str):
     """Run automation task in background."""
     current_app.logger.info(f"Starting automation task: {task}")
 
-    try:
-        # Get the LLM service to trigger the web automation tool
-        llm_service = current_app.extensions.get("llm")
-        if not llm_service:
-            await _send_assistant_message("Error: LLM service not available")
-            await _broadcast_event(
-                "automation_status", "Error: LLM service not available"
-            )
-            await _broadcast_event("automation_complete", "")
-            return
+    # Get the LLM service and web automation tool
+    llm_service = current_app.extensions["llm"]
+    tool_manager = current_app.extensions["tool_manager"]
+    web_automation_tool = tool_manager.get_tool("web_automation")
 
-        # Get the web automation tool
-        tool_manager = current_app.extensions.get("tool_manager")
-        if not tool_manager:
-            await _send_assistant_message("Error: Tool manager not available")
-            await _broadcast_event(
-                "automation_status", "Error: Tool manager not available"
-            )
-            await _broadcast_event("automation_complete", "")
-            return
+    await _send_assistant_message("Starting web automation...")
+    await _broadcast_event("automation_status", "Running automation...")
 
-        web_automation_tool = tool_manager.get_tool("web_automation")
-        if not web_automation_tool:
-            await _send_assistant_message("Error: Web automation tool not available")
-            await _broadcast_event(
-                "automation_status", "Error: Web automation tool not available"
-            )
-            await _broadcast_event("automation_complete", "")
-            return
+    # Execute the automation tool - let exceptions bubble up
+    result = await web_automation_tool.execute({"task": task}, conversation)
 
-        await _send_assistant_message("Starting web automation...")
-        await _broadcast_event("automation_status", "Running automation...")
-
-        # Execute the automation tool - let exceptions bubble up
-        result = await web_automation_tool.execute({"task": task}, conversation)
-
-        await _send_assistant_message(f"Automation completed successfully!")
-        await _broadcast_event("automation_status", "Completed")
-        await _broadcast_event("automation_complete", "")
-
-    except Exception as e:
-        error_msg = f"Automation failed: {str(e)}"
-        await _send_assistant_message(error_msg)
-        await _broadcast_event("automation_status", "Failed")
-        await _broadcast_event("automation_complete", "")
+    await _send_assistant_message(f"Automation completed successfully!")
+    await _broadcast_event("automation_status", "Completed")
+    await _broadcast_event("automation_complete", "")
 
 
 async def _send_assistant_message(message: str):
@@ -193,13 +162,35 @@ async def _send_assistant_message(message: str):
 async def _broadcast_event(event_type: str, data: str):
     """Broadcast event to all connected SSE clients."""
     if not _sse_clients:
+        current_app.logger.debug(f"No SSE clients connected for event: {event_type}")
         return
 
+    current_app.logger.debug(
+        f"Broadcasting event '{event_type}' to {len(_sse_clients)} clients"
+    )
+
     # Send to all connected clients
+    dead_clients = []
     for client_id, queue in list(_sse_clients.items()):
         try:
+            # Use a non-blocking put with maxsize to prevent memory buildup
+            if queue.qsize() > 100:  # Prevent memory issues from slow clients
+                current_app.logger.warning(
+                    f"Client {client_id} queue too large, dropping connection"
+                )
+                dead_clients.append(client_id)
+                continue
+
             await queue.put((event_type, data))
+            current_app.logger.debug(f"Event sent to client {client_id}")
         except Exception as e:
             current_app.logger.error(f"Failed to send event to client {client_id}: {e}")
-            # Remove dead clients
-            _sse_clients.pop(client_id, None)
+            dead_clients.append(client_id)
+
+    # Clean up dead clients
+    for client_id in dead_clients:
+        _sse_clients.pop(client_id, None)
+        current_app.logger.info(f"Removed dead SSE client: {client_id}")
+
+    if dead_clients:
+        current_app.logger.info(f"Cleaned up {len(dead_clients)} dead SSE clients")
