@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from "jinja_ui_kit/components/input/macro.html" import input %}
+{% from "jinja_ui_kit/components/button/macro.html" import button %}
 
 {% block title %}Apparat - AI Assistant{% endblock %}
 
@@ -39,43 +41,55 @@
     <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 h-20">
         <div class="max-w-4xl mx-auto">
             <form id="input-form"
-                  hx-post="/message"
+                  hx-post="{{ url_for('main.send_message') }}"
                   hx-trigger="submit"
                   hx-swap="none"
                   class="flex gap-3 items-center h-12"
                   _="on submit reset() me">
 
                 <div class="flex-1">
-                    <input type="text"
-                           id="message-input"
-                           name="message"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-12"
-                           placeholder="Ask me anything..."
-                           required
-                           autofocus
-                           _="on load focus() me
-                              on keydown[key=='Enter' and not shiftKey]
-                                 halt the event
-                                 then trigger submit on #input-form">
+                    {{ input({
+                        'id': 'message-input',
+                        'name': 'message',
+                        'type': 'text',
+                        'placeholder': 'Ask me anything...',
+                        'required': true,
+                        'autofocus': true,
+                        'autocomplete': 'off',
+                        'label': {
+                            'text': 'Message',
+                            'classes': 'sr-only'
+                        },
+                        'classes': 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-12',
+                        'formGroup': {
+                            'classes': 'mb-0'
+                        }
+                    }) }}
                 </div>
 
-                <button type="submit"
-                        id="submit-btn"
-                        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors h-12"
-                        _="on htmx:beforeRequest add @disabled to me then put 'Sending...' into me
-                           on htmx:afterRequest remove @disabled from me then put 'Send' into me">
-                    Send
-                </button>
+                {{ button({
+                    'text': 'Send',
+                    'type': 'submit',
+                    'id': 'submit-btn',
+                    'variant': 'primary',
+                    'classes': 'px-6 py-3 h-12',
+                    'attributes': {
+                        '_': 'on htmx:beforeRequest add @disabled to me then put \'Sending...\' into me on htmx:afterRequest remove @disabled from me then put \'Send\' into me'
+                    }
+                }) }}
 
                 <!-- Stop button (inline, hidden by default) -->
-                <button id="stop-btn"
-                        hx-post="/stop"
-                        hx-swap="none"
-                        class="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 hidden transition-colors h-12 ml-2"
-                        _="on htmx:beforeRequest add @disabled to me
-                           on htmx:afterRequest remove @disabled from me">
-                    Stop
-                </button>
+                {{ button({
+                    'text': 'Stop',
+                    'id': 'stop-btn',
+                    'variant': 'warning',
+                    'classes': 'px-4 py-3 hidden h-12 ml-2',
+                    'attributes': {
+                        'hx-post': '{{ url_for(\'main.stop\') }}',
+                        'hx-swap': 'none',
+                        '_': 'on htmx:beforeRequest add @disabled to me on htmx:afterRequest remove @disabled from me'
+                    }
+                }) }}
             </form>
         </div>
     </div>
