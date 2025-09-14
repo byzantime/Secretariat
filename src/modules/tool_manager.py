@@ -1,5 +1,7 @@
 """Tool management system for LLM tool use capabilities."""
 
+import inspect
+import os
 from abc import ABC
 from abc import abstractmethod
 from typing import Dict
@@ -19,10 +21,21 @@ class Tool(ABC):
         pass
 
     @property
-    @abstractmethod
     def description(self) -> str:
-        """Return the tool description."""
-        pass
+        """Return the tool description loaded from a .txt file."""
+        # Get the module file path where this tool class is defined
+        module = inspect.getmodule(self.__class__)
+        # Get directory and construct description file path
+        tool_dir = os.path.dirname(module.__file__)
+        description_file = os.path.join(tool_dir, f"{self.name}.txt")
+
+        try:
+            with open(description_file, "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            return f"Description file '{self.name}.txt' not found in {tool_dir}"
+        except Exception as e:
+            return f"Error reading description for {self.name}: {str(e)}"
 
     @property
     @abstractmethod

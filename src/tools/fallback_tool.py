@@ -17,11 +17,6 @@ class FallbackTool(Tool):
         return "__fallback__"
 
     @property
-    def description(self) -> str:
-        """Return the tool description."""
-        return "Fallback tool for handling unknown tool calls"
-
-    @property
     def input_schema(self) -> Dict:
         """Return the tool input schema."""
         return {

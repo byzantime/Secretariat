@@ -18,26 +18,6 @@ class TodoWriteTool(Tool):
         return "todo_write"
 
     @property
-    def description(self) -> str:
-        return """Create and manage a structured task list for tracking progress.
-
-Use this tool proactively when:
-- Tasks have 3+ distinct steps
-- User provides multiple tasks to complete
-- Complex, non-trivial tasks requiring planning
-- After receiving new instructions to capture requirements
-- When starting work on a task (mark as in_progress)
-- After completing tasks (mark as completed)
-
-Skip this tool for:
-- Single, straightforward tasks
-- Trivial tasks with <3 steps
-- Purely conversational requests
-
-Task states: pending, in_progress, completed
-Limit exactly ONE task as in_progress at any time."""
-
-    @property
     def input_schema(self) -> Dict:
         return {
             "type": "object",

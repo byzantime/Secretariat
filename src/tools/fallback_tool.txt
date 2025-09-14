@@ -1,0 +1,1 @@
+Fallback tool for handling unknown tool calls by treating them as regular messages.

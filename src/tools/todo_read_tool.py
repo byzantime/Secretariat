@@ -18,18 +18,6 @@ class TodoReadTool(Tool):
         return "todo_read"
 
     @property
-    def description(self) -> str:
-        return """Read the current todo list for this conversation.
-
-Use this tool to:
-- Check current task progress
-- Review what needs to be done next  
-- Understand the current workflow state
-- Get task status before starting new work
-
-Returns a list of todos with id, description, and state (pending/in_progress/completed)."""
-
-    @property
     def input_schema(self) -> Dict:
         return {"type": "object", "properties": {}, "additionalProperties": False}
 
