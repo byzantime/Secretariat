@@ -131,7 +131,6 @@ Optional:
 - `DEBUG`: Enable debug mode (default: False)
 - `SENTRY_DSN`: Error tracking
 - `LOG_LEVEL`: Logging level (default: INFO)
-- `AGENT_NAME`: AI agent display name
 
 ## Testing
 

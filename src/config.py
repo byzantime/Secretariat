@@ -7,7 +7,7 @@ load_dotenv()
 
 class Config:
     DEBUG = os.environ.get("DEBUG", "False") == "True"
-    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    LOG_LEVEL = os.environ["LOG_LEVEL"]
     SECRET_KEY = os.environ["SECRET_KEY"]
     VERIFY_SSL = os.environ.get("VERIFY_SSL", "True").lower() == "true"
     SENTRY_DSN = os.environ.get("SENTRY_DSN")
@@ -21,7 +21,12 @@ class Config:
     DATABASE_NAME = os.environ.get("DATABASE_NAME", "src")
     DATABASE_URL = f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 
-    ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+    # LLM Provider Configuration - "anthropic" or "openrouter"
+    LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic")
 
-    # Basic agent configuration for skeleton
-    AGENT_NAME = os.environ.get("AGENT_NAME", "Src Assistant")
+    # Anthropic Configuration
+    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+
+    # OpenRouter Configuration
+    OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+    OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
