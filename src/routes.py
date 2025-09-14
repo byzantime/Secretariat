@@ -97,7 +97,6 @@ async def stop_chat():
     if _current_conversation:
         await _current_conversation.cancel_processing()
 
-    await _send_assistant_message("Chat stopped by user")
     await _broadcast_event("status_update", "Stopped")
     await _broadcast_event("automation_complete", "")
     return "", 200
@@ -189,22 +188,13 @@ async def _process_chat_message(conversation: Conversation, message: str):
         await _broadcast_event("automation_complete", "")
 
 
-async def _send_assistant_message(message: str):
-    """Send an assistant message to the conversation area."""
-    html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-        <div class="font-semibold text-gray-800">Assistant</div>
-        <div class="text-gray-700">{message}</div>
-    </div>"""
-    await _broadcast_event("conversation_message", html_message)
-
-
 async def _broadcast_user_message(message: str):
     """Broadcast a user message to the UI."""
     html_message = f"""<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
         <div class="font-semibold text-blue-800">You</div>
         <div class="text-blue-700">{message}</div>
     </div>"""
-    await _broadcast_event("conversation_message", html_message)
+    await _broadcast_event("streaming_text", html_message)
 
 
 async def _broadcast_event(event_type: str, data: str):

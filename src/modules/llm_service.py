@@ -318,14 +318,10 @@ class LLMService:
 
     async def _broadcast_todo_status_update(self):
         """Broadcast todo status update to the UI."""
-        try:
-            # Import here to avoid circular imports
-            from src.routes import _broadcast_todo_status
+        # Import here to avoid circular imports
+        from src.routes import _broadcast_todo_status
 
-            await _broadcast_todo_status()
-        except ImportError:
-            # If routes module isn't available, silently skip
-            pass
+        await _broadcast_todo_status()
 
     async def respond_with_context(
         self, conversation_id: UUID, messages: list, tools: Optional[List[Dict]] = None
@@ -377,7 +373,7 @@ class LLMService:
             # Set up context for tools
             deps = {"conversation_id": conversation_id, "conversation": conversation}
 
-            buffer = ""
+            message_id = None
 
             # Run the agent with streaming
             async with self.agent.run_stream(
@@ -386,27 +382,21 @@ class LLMService:
                 deps=deps,
             ) as result:
                 async for text in result.stream_text():
-                    buffer += text
                     current_app.logger.debug(f"Received streaming text: {text[:20]}...")
-                    # Emit streaming updates for UI
-                    await self._broadcast_streaming_text(text)
+
+                    # Create message placeholder on first chunk, then send updates
+                    if message_id is None:
+                        message_id = secrets.token_urlsafe(8)
+                        await self._send_initial_message(message_id, text)
+                    else:
+                        # Send out-of-band update to replace content
+                        await self._send_message_update(message_id, text)
 
                 # Update token counts
                 await self._update_token_counts(conversation, result)
 
                 # Store the run result for future message history
                 conversation.store_run_result(result)
-
-                # Broadcast final response for UI
-                if buffer.strip():
-                    current_app.logger.info(
-                        f"Broadcasting final message: {buffer[:50]}..."
-                    )
-                    await self._broadcast_final_message(buffer)
-                else:
-                    current_app.logger.warning(
-                        "No final message to broadcast - buffer is empty"
-                    )
 
         except Exception as e:
             await self._handle_general_error(conversation, e)
@@ -418,28 +408,26 @@ class LLMService:
                 f"LLM streaming completed for conversation {conversation_id}"
             )
 
-    async def _broadcast_streaming_text(self, text: str):
-        """Broadcast streaming text to the UI."""
-        try:
-            from src.routes import _broadcast_event
+    async def _send_initial_message(self, message_id: str, content: str):
+        """Send the initial message HTML that gets appended to conversation area."""
+        from src.routes import _broadcast_event
 
-            # Send the text directly as string, not as dict
-            await _broadcast_event("streaming_text", text)
-        except ImportError:
-            pass
+        html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+            <div class="font-semibold text-gray-800">Assistant</div>
+            <div id="msg-{message_id}-content" class="text-gray-700" sse-swap="message-{message_id}-update">{content}</div>
+        </div>"""
+        await _broadcast_event("streaming_text", html_message)
 
-    async def _broadcast_final_message(self, message: str):
-        """Broadcast final assistant message to the UI."""
-        try:
-            from src.routes import _broadcast_event
+    async def _send_message_update(self, message_id: str, content: str):
+        """Send out-of-band update to replace message content within existing message."""
+        current_app.logger.debug(f"Sending OOB update for {message_id}: {content}")
+        from src.routes import _broadcast_event
 
-            html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                <div class="font-semibold text-gray-800">Assistant</div>
-                <div class="text-gray-700">{message}</div>
-            </div>"""
-            await _broadcast_event("conversation_message", html_message)
-        except ImportError:
-            pass
+        html_message = f"""
+            <div id="msg-{message_id}-content" class="text-gray-700" sse-swap="message-{message_id}-update"
+            hx-swap-oob="true">{content}</div>
+        """
+        await _broadcast_event(f"message-{message_id}-update", html_message)
 
     async def _handle_general_error(self, conversation, error):
         """Handle general errors during LLM processing."""

@@ -15,7 +15,7 @@
     <div id="conversation-area"
          class="flex-1 overflow-y-auto bg-white"
          style="margin-bottom: 7rem;"
-         sse-swap="conversation_message"
+         sse-swap="streaming_text"
          hx-swap="beforeend scroll:bottom"
          _="on htmx:afterSwap go to the bottom of me smoothly">
 
@@ -116,7 +116,7 @@
         call #message-input.focus()
     end
 
-    on htmx:sseMessage[detail.type == 'conversation_message'] from body
+    on htmx:sseMessage[detail.type == 'streaming_text'] from body
         wait 100ms then go to the bottom of #conversation-area smoothly
     end
 </script>
