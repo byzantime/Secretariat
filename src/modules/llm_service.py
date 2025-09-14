@@ -9,6 +9,7 @@ from typing import Optional
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+import browser_use
 from pydantic_ai import Agent
 from pydantic_ai import RunContext
 from pydantic_ai.models.anthropic import AnthropicModel
@@ -32,6 +33,7 @@ class LLMService:
         self.agent = None
         self.extraction_agent = None
         self.max_history = 20
+        self.browser_instance = None  # Persistent browser for automation tasks
         if app is not None:
             self.init_app(app)
 
@@ -315,6 +317,75 @@ class LLMService:
                 summary += f" ({', '.join(parts)})"
 
             return summary
+
+        @self.agent.tool
+        async def browser_automation(ctx: RunContext[dict], task: str) -> str:
+            """Use this tool to automate browser tasks like web navigation, form filling, data extraction, and more.
+
+            This tool uses an AI-powered browser automation agent that can:
+            - Navigate to websites and interact with elements
+            - Fill out forms and submit data
+            - Extract information from web pages
+            - Handle complex multi-step workflows
+            - Wait for human intervention when needed (2FA, captcha, etc.)
+
+            The browser session is persistent, so authentication and login state is maintained across tasks.
+
+            Args:
+                task: A clear description of what you want the browser to do.
+                      Examples:
+                      - "Go to google.com and search for 'best restaurants near me'"
+                      - "Navigate to amazon.com, search for 'wireless headphones', and get the first 3 product details"
+                      - "Fill out the contact form on example.com with my information"
+                      - "Go to my bank website and check my account balance" (will pause for human login)
+
+            Returns:
+                A description of what was accomplished, including any extracted data or final results.
+            """
+            # Initialize browser if needed
+            if self.browser_instance is None:
+                self.browser_instance = browser_use.Browser(
+                    headless=False,  # Visible so human can intervene
+                    keep_alive=True,  # Persistent session
+                )
+
+            # Create browser-use agent with same Anthropic model
+            api_key = current_app.config["ANTHROPIC_API_KEY"]
+            browser_agent = browser_use.Agent(
+                task=task,
+                llm=browser_use.ChatAnthropic(
+                    model=self.DEFAULT_MODEL, api_key=api_key
+                ),
+                browser=self.browser_instance,
+            )
+
+            # Run the browser automation task
+            current_app.logger.info(f"Starting browser automation task: {task}")
+            history = await browser_agent.run()
+
+            # Extract results
+            if history and hasattr(history, "final_result"):
+                result = history.final_result()
+                if result:
+                    success_msg = (
+                        f"✅ Browser automation completed successfully:\n{result}"
+                    )
+                else:
+                    success_msg = f"✅ Browser automation task completed: {task}"
+            else:
+                success_msg = f"✅ Browser automation task completed: {task}"
+
+            # Add screenshot info if available
+            if (
+                history
+                and hasattr(history, "screenshot_paths")
+                and history.screenshot_paths()
+            ):
+                screenshots = history.screenshot_paths()
+                success_msg += f"\n📷 Screenshots saved: {len(screenshots)} files"
+
+            current_app.logger.info(f"Browser automation completed: {task}")
+            return success_msg
 
     async def _broadcast_todo_status_update(self):
         """Broadcast todo status update to the UI."""

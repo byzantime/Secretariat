@@ -1,5 +1,6 @@
 alembic
-pydantic-ai[anthropic]
+browser-use
+pydantic-ai
 asyncpg
 httpx
 jinja-ui-kit @ git+https://github.com/byzantime/jinja-ui-kit.git
@@ -8,6 +9,5 @@ quart-assets
 quart-auth
 quart-compress
 quart-flask-patch
-selenium
 sqlalchemy[asyncio]
 sentry-sdk
