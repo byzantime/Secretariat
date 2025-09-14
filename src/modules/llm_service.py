@@ -1,7 +1,7 @@
-"""LLMService with sentence-based text chunking."""
+"""LLMService using Pydantic AI agent framework."""
 
-import asyncio
 import json
+import secrets
 from datetime import datetime
 from typing import Dict
 from typing import List
@@ -9,16 +9,17 @@ from typing import Optional
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-import anthropic
-import httpx
-from anthropic import AsyncAnthropic
+from pydantic_ai import Agent
+from pydantic_ai import RunContext
+from pydantic_ai.models.anthropic import AnthropicModel
+from pydantic_ai.providers.anthropic import AnthropicProvider
 from quart import current_app
 
-from src.modules.text_utils import chunk_text_by_sentence
+from src.tools.todo_storage import todos_storage
 
 
 class LLMService:
-    """Service for interacting with Anthropic's Claude LLM."""
+    """Service for interacting with LLMs using Pydantic AI."""
 
     # Constants
     DEFAULT_MODEL = "claude-3-haiku-20240307"
@@ -28,31 +29,303 @@ class LLMService:
     EXTRACTION_MAX_TOKENS = 500
 
     def __init__(self, app=None):
-        self.client = None
-        self.max_history = 20  # Adjust as needed
+        self.agent = None
+        self.extraction_agent = None
+        self.max_history = 20
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
         """Initialise LLM service with app."""
         api_key = app.config["ANTHROPIC_API_KEY"]
-        # Custom HTTP client with optimized settings
-        http_client = httpx.AsyncClient(
-            limits=httpx.Limits(
-                max_keepalive_connections=20,
-                max_connections=100,
-                keepalive_expiry=30.0,
+
+        # Initialize the model with custom provider
+        provider = AnthropicProvider(api_key=api_key)
+        model = AnthropicModel(
+            model_name=self.DEFAULT_MODEL,
+            provider=provider,
+        )
+
+        # Create the main agent with tools
+        self.agent = Agent(
+            model=model,
+            deps_type=dict,  # We'll pass conversation context as deps
+            system_prompt=(
+                "You are a helpful AI assistant. Be friendly and informative."
             ),
-            timeout=30.0,
-            http2=True,  # Enable HTTP/2
         )
-        self.client = AsyncAnthropic(
-            api_key=api_key,
-            max_retries=1,
-            http_client=http_client,
+
+        # Create extraction agent for structured data extraction
+        self.extraction_agent = Agent(
+            model=model,
+            deps_type=dict,
+            system_prompt=(
+                "You are an expert at extracting and formatting information from text."
+                " Output only valid JSON with the requested fields. Do not include any"
+                " explanation or additional text."
+            ),
         )
-        app.logger.info("LLMService initialised with Anthropic API")
+
+        # Add dynamic system prompt for time context
+        @self.agent.system_prompt
+        def add_time_context(ctx: RunContext[dict]) -> str:
+            """Add current time context to system prompt."""
+            current_time = datetime.now(ZoneInfo("Pacific/Auckland")).strftime(
+                "%A %-d %B %Y, %-I:%M %P"
+            )
+            return f"The current date and time is {current_time}."
+
+        # Register tools
+        self._register_tools()
+
+        app.logger.info("LLMService initialised with Pydantic AI")
         app.extensions["llm"] = self
+
+    def _register_tools(self):
+        """Register tools with the agent."""
+
+        @self.agent.tool
+        async def todo_read(ctx: RunContext[dict]) -> str:
+            """Use this tool to read the current to-do list for the session.
+
+            This tool should be used proactively and frequently to ensure that you are aware of the status of the current task list.
+            You should make use of this tool as often as possible, especially in the following situations:
+            - At the beginning of conversations to see what's pending
+            - Before starting new tasks to prioritize work
+            - When the user asks about previous tasks or plans
+            - Whenever you're uncertain about what to do next
+            - After completing tasks to update your understanding of remaining work
+            - After every few messages to ensure you're on track
+
+            Usage:
+            - This tool takes in no parameters. So leave the input blank or empty. DO NOT include a dummy object, placeholder string or a key like "input" or "empty". LEAVE IT BLANK.
+            - Returns a list of todo items with their status, priority, and content
+            - Use this information to track progress and plan next steps
+            - If no todos exist yet, an empty list will be returned
+            """
+            conversation_id = ctx.deps.get("conversation_id")
+            if not conversation_id:
+                return "Error: No conversation context available."
+
+            todos = todos_storage.get(conversation_id, [])
+
+            if not todos:
+                return "No todos found for this conversation."
+
+            result = f"Current todos ({len(todos)} total):\n"
+            for i, todo in enumerate(todos, 1):
+                status_emoji = {
+                    "pending": "⏳",
+                    "in_progress": "🔄",
+                    "completed": "✅",
+                }.get(todo["state"], "❓")
+                result += (
+                    f"{i}. [{todo['state']}] {status_emoji} {todo['description']} (ID:"
+                    f" {todo['id']})\n"
+                )
+
+            return result.strip()
+
+        @self.agent.tool
+        async def todo_write(ctx: RunContext[dict], tasks: List[Dict[str, str]]) -> str:
+            """Use this tool to create and manage a structured task list for your current session.
+
+            This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
+            It also helps the user understand the progress of the task and overall progress of their requests.
+
+            ## When to Use This Tool
+            Use this tool proactively in these scenarios:
+
+            1. Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
+            2. Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
+            3. User explicitly requests todo list - When the user directly asks you to use the todo list
+            4. User provides multiple tasks - When users provide a list of things to be done (numbered or comma-separated)
+            5. After receiving new instructions - Immediately capture user requirements as todos. Feel free to edit the todo list based on new information.
+            6. After completing a task - Mark it complete and add any new follow-up tasks
+            7. When you start working on a new task, mark the todo as in_progress. Ideally you should only have one todo as in_progress at a time. Complete existing tasks before starting new ones.
+
+            ## When NOT to Use This Tool
+
+            Skip using this tool when:
+            1. There is only a single, straightforward task
+            2. The task is trivial and tracking it provides no organizational benefit
+            3. The task can be completed in less than 3 trivial steps
+            4. The task is purely conversational or informational
+
+            NOTE that you should not use this tool if there is only one trivial task to do. In this case you are better off just doing the task directly.
+
+            ## Examples of When to Use the Todo List
+
+            <example>
+            User: I need help organizing my daily schedule, creating a budget plan, and researching vacation destinations for next summer.
+            Assistant: I'll help you with these tasks. Let me create a todo list to track this work.
+            *Creates todo list with the following items:*
+            1. Help organize daily schedule - gather current commitments and preferences
+            2. Create comprehensive budget plan - assess income, expenses, and financial goals
+            3. Research vacation destinations for next summer - compile options with costs and activities
+            *Begins working on the first task*
+
+            <reasoning>
+            The assistant used the todo list because:
+            1. The user provided multiple distinct tasks that require different approaches
+            2. Each task is complex and involves multiple steps (gathering info, analysis, compilation)
+            3. The todo list helps ensure all three requests are addressed systematically
+            4. This approach allows tracking progress across all three areas
+            </reasoning>
+            </example>
+
+            <example>
+            User: Can you help me write a professional email to my manager about a project delay, and also help me brainstorm solutions to get back on track?
+            Assistant: I'll help you write a professional email about the project delay and brainstorm solutions. Let me create a todo list to track this work.
+            *Creates todo list with items like: 1) Draft professional email to manager explaining project delay, 2) Brainstorm practical solutions to get project back on track, 3) Review and refine both the email and solutions*
+
+            <reasoning>
+            The assistant used the todo list because:
+            1. This involves two related but distinct deliverables (email + solutions)
+            2. Each requires different approaches and considerations
+            3. The tasks are interconnected and benefit from systematic tracking
+            4. This ensures both parts of the request are fully addressed
+            </reasoning>
+            </example>
+
+            <example>
+            User: I'm planning a dinner party for 8 people next weekend. Can you help me plan the menu, create a shopping list, and suggest a timeline for preparation?
+            Assistant: I'd be happy to help you plan your dinner party! Let me create a todo list to organize this planning.
+            *Creates todo list with items like: 1) Plan dinner party menu for 8 people considering dietary restrictions, 2) Create comprehensive shopping list organized by store sections, 3) Develop preparation timeline with tasks scheduled optimally*
+
+            <reasoning>
+            The assistant used the todo list because:
+            1. Planning a dinner party involves multiple complex, interconnected tasks
+            2. Menu planning, shopping, and timing all require different considerations
+            3. The systematic approach ensures nothing is forgotten
+            4. Each task builds on the others and benefits from organized tracking
+            </reasoning>
+            </example>
+
+            ## Examples of When NOT to Use the Todo List
+
+            <example>
+            User: What's the weather like today?
+            Assistant: I don't have access to real-time weather data, but you can check the current weather by looking at a weather app, website like weather.com, or asking a voice assistant like Siri or Google Assistant.
+
+            <reasoning>
+            The assistant did not use the todo list because this is a single, straightforward informational request that can be answered immediately without multiple steps or complex planning.
+            </reasoning>
+            </example>
+
+            <example>
+            User: Can you explain what a metaphor is?
+            Assistant: A metaphor is a figure of speech that directly compares two unlike things by stating that one thing is another, without using "like" or "as." For example, "Time is money" compares time to money, suggesting both are valuable resources that can be spent or saved.
+
+            <reasoning>
+            The assistant did not use the todo list because this is a simple informational request requiring a single explanation, not multiple tasks or complex operations.
+            </reasoning>
+            </example>
+
+            <example>
+            User: Please remind me to call my dentist.
+            Assistant: I'm not able to set actual reminders or send notifications, but I'd suggest setting a reminder on your phone, calendar app, or writing it down so you don't forget to call your dentist.
+
+            <reasoning>
+            The assistant did not use the todo list because this is a single, simple request that can be addressed with one response. There's no complex task to track or multiple steps to manage.
+            </reasoning>
+            </example>
+
+            ## Task States and Management
+
+            1. **Task States**: Use these states to track progress:
+               - pending: Task not yet started
+               - in_progress: Currently working on (limit to ONE task at a time)
+               - completed: Task finished successfully
+               - cancelled: Task no longer needed
+
+            2. **Task Management**:
+               - Update task status in real-time as you work
+               - Mark tasks complete IMMEDIATELY after finishing (don't batch completions)
+               - Only have ONE task in_progress at any time
+               - Complete current tasks before starting new ones
+               - Cancel tasks that become irrelevant
+
+            3. **Task Breakdown**:
+               - Create specific, actionable items
+               - Break complex tasks into smaller, manageable steps
+               - Use clear, descriptive task names
+
+            When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.
+            """
+            conversation_id = ctx.deps.get("conversation_id")
+            if not conversation_id:
+                return "Error: No conversation context available."
+
+            if not tasks:
+                return "No tasks provided."
+
+            # Validate only one task can be in_progress
+            in_progress_count = sum(
+                1 for task in tasks if task.get("state") == "in_progress"
+            )
+            if in_progress_count > 1:
+                return "Error: Only one task can have 'in_progress' state at a time."
+
+            # Validate required fields and states
+            valid_states = {"pending", "in_progress", "completed"}
+            for task in tasks:
+                if not isinstance(task, dict):
+                    return "Error: Each task must be a dictionary."
+                if "description" not in task or "state" not in task:
+                    return (
+                        "Error: Each task must have 'description' and 'state' fields."
+                    )
+                if task["state"] not in valid_states:
+                    return (
+                        f"Error: Invalid state '{task['state']}'. Must be one of:"
+                        f" {', '.join(valid_states)}"
+                    )
+
+            # Generate simple IDs and create todos
+            new_todos = []
+            for task_data in tasks:
+                todo = {
+                    "id": secrets.token_urlsafe(6),
+                    "description": task_data["description"],
+                    "state": task_data["state"],
+                }
+                new_todos.append(todo)
+
+            # Replace entire todo list atomically
+            todos_storage[conversation_id] = new_todos
+
+            # Broadcast todo status update
+            await self._broadcast_todo_status_update()
+
+            # Return summary
+            state_counts = {}
+            for todo in new_todos:
+                state = todo["state"]
+                state_counts[state] = state_counts.get(state, 0) + 1
+
+            summary = f"Updated todos: {len(new_todos)} total"
+            if state_counts:
+                parts = []
+                for state, count in state_counts.items():
+                    emoji = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}[
+                        state
+                    ]
+                    parts.append(f"{count} {state} {emoji}")
+                summary += f" ({', '.join(parts)})"
+
+            return summary
+
+    async def _broadcast_todo_status_update(self):
+        """Broadcast todo status update to the UI."""
+        try:
+            # Import here to avoid circular imports
+            from src.routes import _broadcast_todo_status
+
+            await _broadcast_todo_status()
+        except ImportError:
+            # If routes module isn't available, silently skip
+            pass
 
     async def respond_with_context(
         self, conversation_id: UUID, messages: list, tools: Optional[List[Dict]] = None
@@ -60,90 +333,81 @@ class LLMService:
         """Call the LLM with a specific context and optional tools."""
         current_app.logger.debug(f"LLM call for conversation {conversation_id}")
 
-        # Build system prompt and request parameters
         conversation = await self._get_conversation(conversation_id)
-        system_prompt = await self._build_system_prompt(conversation)
-        request_params = self._build_request_params(
-            system_prompt=system_prompt,
-            messages=messages,
-            tools=tools,
-        )
-
-        self._log_request_debug(conversation.id, system_prompt, tools)
-
-        async with self.client.messages.stream(**request_params) as stream:
-            async for text in stream.text_stream:
-                yield text
-
-        # Update token counts and yield final message
-        final_message = await stream.get_final_message()
-        await self._update_token_counts(conversation, final_message)
-        yield final_message
-
-    async def process_and_respond(self, conversation_id: UUID):
-        """Process conversation history and generate a response."""
-        conversation = await self._get_conversation(conversation_id)
-        conversation_history = await conversation.get_convo_history_for_llm(
-            last_n=self.max_history,
-        )
-        current_app.logger.debug(
-            f"Conversation history for {conversation_id}: {conversation_history}"
-        )
-
-        # Get available tools
-        tool_manager = current_app.extensions["tool_manager"]
-        tools = await tool_manager.get_available_tools(conversation)
+        deps = {"conversation_id": conversation_id, "conversation": conversation}
 
         try:
-            # Iteratively handle LLM responses and tool use until completion
-            max_iterations = 5  # Prevent infinite loops
-            iteration = 0
-            total_buffer = ""
+            async with self.agent.run_stream(
+                user_prompt="", message_history=messages, deps=deps
+            ) as result:
+                async for text in result.stream_text():
+                    yield text
 
-            while iteration < max_iterations:
-                # Generate streaming response with tool handling
-                buffer, tool_used = await self._generate_streaming_response(
-                    conversation, conversation_history, tools
-                )
-                total_buffer += buffer
+                # Get the final message with potential usage info
+                final_message = await result.get_data()
+                await self._update_token_counts(conversation, result)
 
-                # If no tool was used, we're done
-                if not tool_used:
-                    break
+                # Store result in conversation's pydantic messages
+                conversation.store_run_result(result)
 
-                # Get updated conversation history and tools for next iteration
-                conversation_history = await conversation.get_convo_history_for_llm(
-                    last_n=self.max_history
-                )
-                current_app.logger.debug(
-                    f"Conversation history for {conversation_id}:"
-                    f" {conversation_history}"
-                )
-                tool_manager = current_app.extensions["tool_manager"]
-                tools = await tool_manager.get_available_tools(conversation)
+                yield final_message
 
-                iteration += 1
-                current_app.logger.debug(
-                    f"Tool use iteration {iteration} for conversation {conversation_id}"
-                )
-
-            # Only finalize response in conversation history if no tool was used in final iteration
-            # (tools handle their own response text and history updates)
-            if not tool_used and total_buffer.strip():
-                asyncio.create_task(
-                    conversation.add_to_role_convo_history(
-                        "assistant",
-                        total_buffer,
-                        final=True,
-                    )
-                )
-
-        except anthropic.APIStatusError as e:
-            await self._handle_general_error(conversation, e)
-        except asyncio.CancelledError:
-            current_app.logger.info(
-                f"LLM response processing cancelled for conversation {conversation_id}"
+        except Exception as e:
+            current_app.logger.error(
+                f"Error in LLM response generation: {str(e)}", exc_info=True
             )
+            raise
+
+    async def process_and_respond(self, conversation_id: UUID, user_message: str):
+        """Process conversation history and generate a response."""
+        conversation = await self._get_conversation(conversation_id)
+
+        # Add user message to pydantic history
+        conversation.add_user_message(user_message)
+
+        # Get pydantic-ai compatible message history
+        message_history = conversation.get_pydantic_messages(last_n=self.max_history)
+
+        current_app.logger.debug(
+            f"Conversation history for {conversation_id}:"
+            f" {len(message_history)} messages"
+        )
+
+        try:
+            # Set up context for tools
+            deps = {"conversation_id": conversation_id, "conversation": conversation}
+
+            buffer = ""
+
+            # Run the agent with streaming
+            async with self.agent.run_stream(
+                user_prompt=user_message,
+                message_history=message_history[:-1],
+                deps=deps,
+            ) as result:
+                async for text in result.stream_text():
+                    buffer += text
+                    current_app.logger.debug(f"Received streaming text: {text[:20]}...")
+                    # Emit streaming updates for UI
+                    await self._broadcast_streaming_text(text)
+
+                # Update token counts
+                await self._update_token_counts(conversation, result)
+
+                # Store the run result for future message history
+                conversation.store_run_result(result)
+
+                # Broadcast final response for UI
+                if buffer.strip():
+                    current_app.logger.info(
+                        f"Broadcasting final message: {buffer[:50]}..."
+                    )
+                    await self._broadcast_final_message(buffer)
+                else:
+                    current_app.logger.warning(
+                        "No final message to broadcast - buffer is empty"
+                    )
+
         except Exception as e:
             await self._handle_general_error(conversation, e)
         finally:
@@ -154,112 +418,35 @@ class LLMService:
                 f"LLM streaming completed for conversation {conversation_id}"
             )
 
-    async def _generate_streaming_response(
-        self,
-        conversation,
-        conversation_history: list,
-        tools: list,
-    ) -> tuple[str, bool]:
-        """Generate streaming response with tool handling."""
-        buffer = ""
-        last_emit = 0  # Track position of last emit
-        final_message = None
-        tool_used = False
+    async def _broadcast_streaming_text(self, text: str):
+        """Broadcast streaming text to the UI."""
+        try:
+            from src.routes import _broadcast_event
 
-        # Initial streaming response
-        async for text in self.respond_with_context(
-            conversation.id, conversation_history, tools
-        ):
-            if isinstance(text, anthropic.types.Message):
-                # This is the final message with potential tool use
-                final_message = text
-                break
+            # Send the text directly as string, not as dict
+            await _broadcast_event("streaming_text", text)
+        except ImportError:
+            pass
 
-            buffer += text
-            current_length = len(buffer)
+    async def _broadcast_final_message(self, message: str):
+        """Broadcast final assistant message to the UI."""
+        try:
+            from src.routes import _broadcast_event
 
-            # Process and emit text chunks
-            last_emit = await self._process_text_chunks(
-                conversation, buffer, last_emit, current_length
-            )
-
-        # Handle tool use if present
-        if final_message and final_message.stop_reason == "tool_use":
-            tool_used = True
-            # Extract any text content from the final message before tool execution
-            text_content = ""
-            for content_block in final_message.content:
-                if content_block.type == "text":
-                    text_content += content_block.text
-
-            if text_content:
-                buffer += text_content
-                current_length = len(buffer)
-
-                # Process text content through normal chunking pipeline for consistent streaming
-                last_emit = await self._process_text_chunks(
-                    conversation, buffer, last_emit, current_length
-                )
-
-            # Execute tools - tools now handle their own response text and history updates
-            await self._handle_tool_use(final_message, conversation)
-
-            # Signal that tool results need follow-up processing
-            # The iterative loop in process_and_respond will handle this
-        else:
-            # Process any remaining text (only if not interrupted and no tool used)
-            await self._emit_remaining_text(conversation, buffer, last_emit)
-
-        return buffer, tool_used
-
-    async def _emit_remaining_text(self, conversation, buffer: str, last_emit: int):
-        """Emit any remaining text."""
-        remaining_text = buffer[last_emit:].strip()
-        if remaining_text:
-            current_app.logger.debug(
-                f"LLM emitting final chunk: '{remaining_text[:50]}...'"
-            )
+            html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <div class="font-semibold text-gray-800">Assistant</div>
+                <div class="text-gray-700">{message}</div>
+            </div>"""
+            await _broadcast_event("conversation_message", html_message)
+        except ImportError:
+            pass
 
     async def _handle_general_error(self, conversation, error):
         """Handle general errors during LLM processing."""
         current_app.logger.error(
             f"Error in LLM response generation: {str(error)}", exc_info=True
         )
-        # For skeleton app, just log the error without generating excuses
         current_app.logger.info("LLM error handled - no response generated")
-
-    async def _call_llm(
-        self,
-        system_prompt: str,
-        messages: list,
-        max_tokens: int = None,
-        temperature: float = None,
-        conversation_id: Optional[UUID] = None,
-        tools: Optional[List[Dict]] = None,
-    ):
-        """Make a basic call to Claude LLM.
-
-        Returns:
-            str: Generated response
-        """
-        request_params = self._build_request_params(
-            system_prompt=system_prompt,
-            messages=messages,
-            max_tokens=max_tokens or self.DEFAULT_MAX_TOKENS,
-            temperature=(
-                temperature if temperature is not None else self.DEFAULT_TEMPERATURE
-            ),
-            tools=tools,
-        )
-
-        response = await self.client.messages.create(**request_params)
-
-        # Track tokens from response usage
-        if conversation_id is not None:
-            conversation = await self._get_conversation(conversation_id)
-            await self._update_token_counts(conversation, response)
-
-        return response.content[0].text
 
     async def extract_info(
         self, text: str, extraction_prompt: str, conversation_id: Optional[UUID] = None
@@ -269,215 +456,37 @@ class LLMService:
         Args:
             text (str): Text to extract information from
             extraction_prompt (str): Prompt specifying what to extract and how
+            conversation_id (UUID, optional): Conversation ID for token tracking
 
         Returns:
             dict: Extracted information
         """
-        system_prompt = """You are an expert at extracting and formatting information from text.
-        Output only valid JSON with the requested fields. Do not include any explanation or additional text."""
+        user_prompt = f"{extraction_prompt}\n\nText to analyze: {text}"
 
-        messages = [{
-            "role": "user",
-            "content": f"{extraction_prompt}\n\nText to analyze: {text}",
-        }]
-        current_app.logger.debug(f"MESSAGES!!! {messages}")
+        deps = {}
+        if conversation_id:
+            deps["conversation_id"] = conversation_id
+
         try:
-            response = await self._call_llm(
-                system_prompt=system_prompt,
-                messages=messages,
-                temperature=0,  # Use 0 for consistent extraction
-                max_tokens=self.EXTRACTION_MAX_TOKENS,
-                conversation_id=conversation_id,
-            )
-            return json.loads(response)
+            result = await self.extraction_agent.run(user_prompt=user_prompt, deps=deps)
+
+            # Update token counts if conversation_id provided
+            if conversation_id:
+                conversation = await self._get_conversation(conversation_id)
+                await self._update_token_counts(conversation, result)
+
+            return json.loads(result.data)
         except Exception as e:
             current_app.logger.error(f"Error extracting information: {str(e)}")
             return {}
-
-    async def _handle_tool_use(
-        self, message: anthropic.types.Message, conversation
-    ) -> Optional[List[Dict]]:
-        """Handle tool use in LLM response and store in conversation history."""
-        import json
-
-        # Log conversation history before tool processing
-        history_before = await conversation.get_convo_history_for_llm()
-        current_app.logger.debug(
-            "Conversation history BEFORE tool processing for"
-            f" {conversation.id}:\n{json.dumps(history_before, indent=2)}"
-        )
-
-        tool_manager = current_app.extensions["tool_manager"]
-        tool_results = []
-
-        # Convert the full message content to content blocks format and store
-        text_blocks = []
-        tool_blocks = []
-
-        for content_block in message.content:
-            if content_block.type == "text":
-                text_blocks.append({"type": "text", "text": content_block.text})
-            elif content_block.type == "tool_use":
-                tool_blocks.append({
-                    "type": "tool_use",
-                    "id": content_block.id,
-                    "name": content_block.name,
-                    "input": content_block.input,
-                })
-
-        # Store the assistant message with all content in conversation history
-        await conversation.add_to_conversation_history({
-            "role": "assistant",
-            "content": text_blocks + tool_blocks,
-            "final": True,
-        })
-
-        # Execute tools and collect results
-        for content_block in message.content:
-            if content_block.type == "tool_use":
-                tool_name = content_block.name
-                tool_input = content_block.input
-                tool_use_id = content_block.id
-
-                current_app.logger.info(
-                    f"Executing tool '{tool_name}' with input: {tool_input}"
-                )
-
-                # Execute the tool (ToolManager now returns (result_text, is_error))
-                result_text, is_error = await tool_manager.execute_tool(
-                    tool_name, tool_input, conversation
-                )
-
-                tool_result = {
-                    "type": "tool_result",
-                    "tool_use_id": tool_use_id,
-                    "content": result_text,
-                }
-
-                if is_error:
-                    tool_result["is_error"] = True
-
-                tool_results.append(tool_result)
-
-        # Store tool results in conversation history
-        if tool_results:
-            await conversation.add_to_conversation_history({
-                "role": "user",
-                "content": tool_results,
-                "final": True,
-            })
-
-        # Verify tool_use/tool_result ID matching
-        tool_use_ids = []
-        for content_block in message.content:
-            if content_block.type == "tool_use":
-                tool_use_ids.append(content_block.id)
-
-        tool_result_ids = [result["tool_use_id"] for result in tool_results]
-
-        current_app.logger.debug(
-            f"Tool ID verification for {conversation.id}:\n"
-            f"Tool use IDs: {tool_use_ids}\n"
-            f"Tool result IDs: {tool_result_ids}\n"
-            f"IDs match: {set(tool_use_ids) == set(tool_result_ids)}"
-        )
-
-        # Log conversation history after tool processing
-        history_after = await conversation.get_convo_history_for_llm()
-        current_app.logger.debug(
-            "Conversation history AFTER tool processing for"
-            f" {conversation.id}:\n{json.dumps(history_after, indent=2)}"
-        )
-
-        return tool_results if tool_results else None
 
     async def _get_conversation(self, conversation_id: UUID):
         """Get conversation by ID."""
         conversation_manager = current_app.extensions["conversation_manager"]
         return await conversation_manager.get_conversation(conversation_id)
 
-    async def _build_system_prompt(self, conversation) -> str:
-        """Build system prompt with time context."""
-        current_time = datetime.now(ZoneInfo("Pacific/Auckland")).strftime(
-            "%A %-d %B %Y, %-I:%M %P"
-        )
-        time_context = f"The current date and time is {current_time}.\n\n"
-        system_prompt = "You are a helpful AI assistant. Be friendly and informative."
-        return time_context + system_prompt
-
-    def _build_request_params(
-        self,
-        system_prompt: str,
-        messages: list,
-        max_tokens: int = None,
-        temperature: float = None,
-        tools: Optional[List[Dict]] = None,
-    ) -> Dict:
-        """Build request parameters for LLM API calls."""
-        params = {
-            "model": self.DEFAULT_MODEL,
-            "max_tokens": max_tokens or self.DEFAULT_MAX_TOKENS,
-            "temperature": temperature or self.DEFAULT_TEMPERATURE,
-            "system": system_prompt,
-            "messages": messages,
-        }
-
-        if tools:
-            params["tools"] = tools
-
-        return params
-
-    async def _update_token_counts(self, conversation, message_or_response):
+    async def _update_token_counts(self, conversation, result):
         """Update conversation token counts from LLM response."""
-        if hasattr(message_or_response, "usage"):
-            conversation.input_token_count += message_or_response.usage.input_tokens
-            conversation.output_token_count += message_or_response.usage.output_tokens
-
-    def _log_request_debug(
-        self,
-        conversation_id: str,
-        system_prompt: str,
-        tools: Optional[List[Dict]],
-    ):
-        """Log debug information for LLM request."""
-
-        current_app.logger.debug(
-            "\n==============================================\n"
-            f"LLM request for conversation {conversation_id}:"
-            f"\nSystem prompt:\n{system_prompt}"
-            f"\nTools available: {len(tools) if tools else 0}"
-            "\n=============================================="
-        )
-
-    async def _process_text_chunks(
-        self, conversation, buffer: str, last_emit: int, current_length: int
-    ) -> int:
-        """Process and emit text chunks for streaming response."""
-        # Only process new content since last emit
-        if current_length - last_emit <= self.CHUNK_SIZE_THRESHOLD:
-            return last_emit
-
-        new_content = buffer[last_emit:]
-        chunks = chunk_text_by_sentence(new_content)
-        if not chunks:
-            return last_emit
-
-        # Only emit complete sentences, keep last chunk in buffer
-        completed_chunks = chunks[:-1]
-        chars_processed = 0
-
-        for chunk in completed_chunks:
-            current_app.logger.debug(f"LLM emitting chunk: '{chunk[:50]}...'")
-            asyncio.create_task(
-                conversation.add_to_role_convo_history(
-                    "assistant",
-                    buffer,
-                    final=False,
-                )
-            )
-            # Find the actual end position of this chunk in new_content
-            chunk_end = new_content.find(chunk, chars_processed) + len(chunk)
-            chars_processed = chunk_end
-
-        # Return updated last_emit position
-        return last_emit + chars_processed
+        if hasattr(result, "usage") and result.usage:
+            conversation.input_token_count += getattr(result.usage, "input_tokens", 0)
+            conversation.output_token_count += getattr(result.usage, "output_tokens", 0)

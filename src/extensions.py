@@ -8,7 +8,6 @@ from src.modules.database import Database
 from src.modules.event_handler import EventHandler
 from src.modules.llm_service import LLMService
 from src.modules.logging_helper import LoggingHelper
-from src.modules.tool_manager import ToolManager
 
 # Create instances without initializing
 compress = Compress()
@@ -19,7 +18,6 @@ browser_service = BrowserService()
 conversation_manager = ConversationManager()
 llm_service = LLMService()
 user_manager = UserManager()
-tool_manager = ToolManager()
 
 
 def init_extensions(app):
@@ -33,5 +31,4 @@ def init_extensions(app):
     event_handler.init_app(app)
     browser_service.init_app(app)  # Browser service can be initialized early
     conversation_manager.init_app(app)  # Initialize before LLM service
-    tool_manager.init_app(app)  # Initialize before LLM service so tools are available
     llm_service.init_app(app)

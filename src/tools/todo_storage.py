@@ -1,6 +1,7 @@
 """Shared storage for simplified todo tools."""
 
-from typing import Dict, List
+from typing import Dict
+from typing import List
 from uuid import UUID
 
 # Shared in-memory storage for todos per conversation

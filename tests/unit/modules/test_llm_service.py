@@ -38,8 +38,6 @@ def mock_conversation():
     """Create a mock conversation object."""
     conv = MagicMock()
     conv.id = uuid4()
-    conv.add_to_role_convo_history = AsyncMock()
-    conv.get_convo_history_for_llm = AsyncMock(return_value=[])
     conv.set_processing_task = MagicMock()
     conv.cancel_processing = AsyncMock()
     return conv

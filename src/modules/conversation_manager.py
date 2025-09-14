@@ -5,12 +5,19 @@ from dataclasses import dataclass
 from dataclasses import field
 from datetime import datetime
 from datetime import timezone
-from typing import Any
+from typing import TYPE_CHECKING
 from typing import Dict
 from typing import List
 from typing import Optional
 from uuid import UUID
 from uuid import uuid4
+
+from pydantic_ai.messages import ModelRequest
+from pydantic_ai.messages import UserPromptPart
+
+if TYPE_CHECKING:
+    from pydantic_ai.messages import ModelMessage
+    from pydantic_ai.result import AgentRunResult
 
 
 @dataclass(slots=True)
@@ -19,8 +26,7 @@ class Conversation:
 
     id: UUID = field(default_factory=uuid4)
     user_id: Optional[int] = None
-    conversation_history: List[Dict[str, Any]] = field(default_factory=list)
-    _history_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    pydantic_messages: List["ModelMessage"] = field(default_factory=list)
     processing_task: Optional[asyncio.Task] = None
 
     # Timestamps
@@ -31,83 +37,23 @@ class Conversation:
     input_token_count: int = 0
     output_token_count: int = 0
 
-    async def add_to_conversation_history(self, message: dict):
-        """Add a message to conversation history."""
-        message["id"] = str(uuid4())  # Add unique ID to each message
-        message["timestamp"] = datetime.now(timezone.utc)
-        self.conversation_history.append(message)
+    def store_run_result(self, result: "AgentRunResult"):
+        """Store a pydantic-ai run result for future message history."""
+        # Store all messages from this run result
+        self.pydantic_messages.extend(result.all_messages())
 
-    async def get_convo_history_for_llm(
-        self,
-        last_n: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
-        """Get conversation history for LLM processing."""
-        # Return only the last N messages if specified
+    def get_pydantic_messages(
+        self, last_n: Optional[int] = None
+    ) -> List["ModelMessage"]:
+        """Get pydantic-ai compatible messages for LLM processing."""
         if last_n is not None:
-            history = self.conversation_history[-last_n:]
-        else:
-            history = self.conversation_history
+            return self.pydantic_messages[-last_n:]
+        return self.pydantic_messages.copy()
 
-        # Filter for LLM-relevant messages and keys
-        filtered_messages = []
-        for msg in history:
-            if msg.get("role") in ["user", "assistant"]:
-                filtered_messages.append(
-                    {key: msg[key] for key in ["role", "content"] if key in msg}
-                )
-
-        return filtered_messages
-
-    async def add_to_role_convo_history(
-        self,
-        role: str,
-        text: str,
-        final: Optional[bool] = True,
-    ):
-        """Add or update conversation history for a specific role."""
-        async with self._history_lock:
-            history = self.conversation_history
-            last_message = history[-1] if history else {}
-
-            # Create new entry if no history, different role, or system role
-            if not history or last_message.get("role") != role or role == "system":
-                content_blocks = [{"type": "text", "text": text}]
-                await self.add_to_conversation_history({
-                    "role": role,
-                    "content": content_blocks,
-                    "final": final,
-                })
-            else:
-                # Update existing message
-                if final or not last_message.get("final", True):
-                    # Replace content for final messages or streaming updates
-                    last_message["content"] = [{"type": "text", "text": text}]
-                    last_message["final"] = final
-                else:
-                    # Append to existing content
-                    existing_text = ""
-                    for block in last_message.get("content", []):
-                        if block.get("type") == "text":
-                            existing_text += block.get("text", "")
-
-                    last_message["content"] = [
-                        {"type": "text", "text": existing_text + text}
-                    ]
-
-            # Broadcast UI update for assistant messages
-            if role == "assistant" and final:
-                await self._broadcast_assistant_message(text)
-
-    async def _broadcast_assistant_message(self, message: str):
-        """Broadcast an assistant message to the UI via SSE."""
-        # Import here to avoid circular imports
-        from src.routes import _broadcast_event
-
-        html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-            <div class="font-semibold text-gray-800">Assistant</div>
-            <div class="text-gray-700">{message}</div>
-        </div>"""
-        await _broadcast_event("conversation_message", html_message)
+    def add_user_message(self, message: str):
+        """Add a user message to pydantic message history."""
+        user_request = ModelRequest(parts=[UserPromptPart(content=message)])
+        self.pydantic_messages.append(user_request)
 
     def set_processing_task(self, task: asyncio.Task):
         """Set the current processing task."""

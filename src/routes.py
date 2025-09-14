@@ -79,14 +79,6 @@ async def send_message():
 
     conversation = _current_conversation
 
-    # Send user message to conversation area
-    await _broadcast_event(
-        "conversation_message",
-        '<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4"><div'
-        ' class="font-semibold text-blue-800">You</div><div'
-        f' class="text-blue-700">{message}</div></div>',
-    )
-
     # Notify chat started
     await _broadcast_event("automation_started", "")
     await _broadcast_event("status_update", "Thinking...")
@@ -173,19 +165,20 @@ async def _process_chat_message(conversation: Conversation, message: str):
     """Process chat message with LLM and tools."""
     current_app.logger.info(f"Processing chat message: {message}")
 
-    # Add user message to conversation history
-    await conversation.add_to_role_convo_history("user", message)
+    # Broadcast user message for UI
+    await _broadcast_user_message(message)
 
     # Get the LLM service
     llm_service = current_app.extensions["llm"]
     await _broadcast_event("status_update", "Generating response...")
 
     current_app.logger.info(
-        f"Conversation history: {conversation.conversation_history}"
+        "Pydantic message count before processing:"
+        f" {len(conversation.pydantic_messages)}"
     )
     try:
         # Process the conversation with LLM
-        await llm_service.process_and_respond(conversation.id)
+        await llm_service.process_and_respond(conversation.id, message)
         # Refresh todo status after processing (in case todos were updated)
         await _broadcast_todo_status()
     except asyncio.CancelledError:
@@ -201,6 +194,15 @@ async def _send_assistant_message(message: str):
     html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
         <div class="font-semibold text-gray-800">Assistant</div>
         <div class="text-gray-700">{message}</div>
+    </div>"""
+    await _broadcast_event("conversation_message", html_message)
+
+
+async def _broadcast_user_message(message: str):
+    """Broadcast a user message to the UI."""
+    html_message = f"""<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <div class="font-semibold text-blue-800">You</div>
+        <div class="text-blue-700">{message}</div>
     </div>"""
     await _broadcast_event("conversation_message", html_message)
 

@@ -1,5 +1,5 @@
 alembic
-anthropic
+pydantic-ai[anthropic]
 asyncpg
 httpx
 jinja-ui-kit @ git+https://github.com/byzantime/jinja-ui-kit.git
