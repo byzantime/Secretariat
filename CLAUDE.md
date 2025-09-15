@@ -79,8 +79,8 @@ npm run build
 python main.py
 
 # Production server (via Docker)
-docker build -t apparat .
-docker run -p 8080:8080 apparat
+docker build -t secretariat .
+docker run -p 8080:8080 secretariat
 ```
 
 ### Code Quality

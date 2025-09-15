@@ -3,7 +3,7 @@
 
 app = 'src'
 primary_region = 'syd'
-org = 'apparat'
+org = 'secretariat'
 
 [build]
   dockerfile = './Dockerfile'

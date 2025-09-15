@@ -12,6 +12,7 @@ from typing import Optional
 from uuid import UUID
 from uuid import uuid4
 
+from quart import render_template
 from pydantic_ai.messages import ModelRequest
 from pydantic_ai.messages import UserPromptPart
 
@@ -81,8 +82,6 @@ class Conversation:
     async def _broadcast_todo_status(self):
         """Broadcast current todo status to status line."""
         # Import here to avoid circular imports
-        from quart import render_template
-
         from src.routes import _broadcast_event
 
         if not self.todos:
