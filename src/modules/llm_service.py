@@ -77,6 +77,20 @@ class LLMService:
                 " 'openrouter'"
             )
 
+    def _create_browser_llm(self, app):
+        """Create browser-use compatible LLM using existing configuration."""
+        provider = app.config["LLM_PROVIDER"].lower()
+
+        if provider != "anthropic":
+            current_app.logger.warning(
+                "Browser automation is only supported with Anthropic provider, but"
+                f" '{provider}' is configured.",
+            )
+            return None
+
+        api_key = app.config["ANTHROPIC_API_KEY"]
+        return browser_use.ChatAnthropic(model=self.DEFAULT_MODEL, api_key=api_key)
+
     def init_app(self, app):
         """Initialise LLM service with app."""
         # Create model based on provider configuration
@@ -94,6 +108,7 @@ class LLMService:
         # Create the main agent with tools
         self.agent = Agent(
             model=model,
+            retries=3,
             deps_type=dict,  # We'll pass conversation context as deps
             system_prompt="You are a helpful AI assistant.",
             instructions=instructions_content,
@@ -102,6 +117,7 @@ class LLMService:
         # Create extraction agent for structured data extraction
         self.extraction_agent = Agent(
             model=model,
+            retries=3,
             deps_type=dict,
             system_prompt=(
                 "You are an expert at extracting and formatting information from text."
@@ -109,6 +125,9 @@ class LLMService:
                 " explanation or additional text."
             ),
         )
+
+        # Create browser LLM for browser automation (reuse existing configuration)
+        self.browser_llm = self._create_browser_llm(app)
 
         # Add dynamic system prompt for time context
         @self.agent.system_prompt
@@ -390,17 +409,15 @@ class LLMService:
             # Initialize browser if needed
             if self.browser_instance is None:
                 self.browser_instance = browser_use.Browser(
-                    headless=False,  # Visible so human can intervene
+                    headless=True,
                     keep_alive=True,  # Persistent session
                 )
 
-            # Create browser-use agent with same Anthropic model
-            api_key = current_app.config["ANTHROPIC_API_KEY"]
+            # Create browser-use agent with preconfigured LLM
             browser_agent = browser_use.Agent(
+                retries=3,
                 task=task,
-                llm=browser_use.ChatAnthropic(
-                    model=self.DEFAULT_MODEL, api_key=api_key
-                ),
+                llm=self.browser_llm,
                 browser=self.browser_instance,
             )
 
