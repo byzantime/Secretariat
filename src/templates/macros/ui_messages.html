@@ -1,0 +1,34 @@
+{% macro ui_message_update(content, message_id) %}
+{#
+  Renders an out-of-band update for message content
+
+  Args:
+    content: The updated message content
+    message_id: Unique ID for HTMX targeting
+#}
+<div id="msg-{{ message_id }}-content"
+     class="text-gray-700"
+     sse-swap="message-{{ message_id }}-update"
+     hx-swap-oob="true">{{ content }}</div>
+{% endmacro %}
+
+{% macro ui_message(sender, content, message_id, timestamp) %}
+{#
+  Renders a UI message with timestamp for streaming LLM responses
+
+  Args:
+    sender: The sender name (e.g., "Assistant")
+    content: The message content
+    message_id: Unique ID for HTMX targeting
+    timestamp: The datetime object to format
+#}
+<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+    <div class="flex justify-between items-start mb-2">
+        <div class="font-semibold text-gray-800">{{ sender }}</div>
+        <div class="text-xs text-gray-500 font-mono">{{ timestamp | dt_format('%H:%M:%S') }}</div>
+    </div>
+    <div id="msg-{{ message_id }}-content"
+         class="text-gray-700"
+         sse-swap="message-{{ message_id }}-update">{{ content }}</div>
+</div>
+{% endmacro %}

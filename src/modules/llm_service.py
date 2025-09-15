@@ -543,23 +543,38 @@ class LLMService:
 
     async def _send_initial_message(self, message_id: str, content: str):
         """Send the initial message HTML that gets appended to conversation area."""
+        from quart import render_template_string
+
         from src.routes import _broadcast_event
 
-        html_message = f"""<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-            <div class="font-semibold text-gray-800">Assistant</div>
-            <div id="msg-{message_id}-content" class="text-gray-700" sse-swap="message-{message_id}-update">{content}</div>
-        </div>"""
+        # Generate timestamp as datetime object
+        timestamp = datetime.now()
+
+        template = """
+        {% from "macros/ui_messages.html" import ui_message %}
+        {{ ui_message("Assistant", content, message_id, timestamp) }}
+        """
+
+        html_message = await render_template_string(
+            template, content=content, message_id=message_id, timestamp=timestamp
+        )
         await _broadcast_event("streaming_text", html_message)
 
     async def _send_message_update(self, message_id: str, content: str):
         """Send out-of-band update to replace message content within existing message."""
         current_app.logger.debug(f"Sending OOB update for {message_id}: {content}")
+        from quart import render_template_string
+
         from src.routes import _broadcast_event
 
-        html_message = f"""
-            <div id="msg-{message_id}-content" class="text-gray-700" sse-swap="message-{message_id}-update"
-            hx-swap-oob="true">{content}</div>
+        template = """
+        {% from "macros/ui_messages.html" import ui_message_update %}
+        {{ ui_message_update(content, message_id) }}
         """
+
+        html_message = await render_template_string(
+            template, content=content, message_id=message_id
+        )
         await _broadcast_event(f"message-{message_id}-update", html_message)
 
     async def _handle_general_error(self, conversation, error):
