@@ -29,4 +29,4 @@ class Config:
 
     # OpenRouter Configuration
     OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-    OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
+    OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL")

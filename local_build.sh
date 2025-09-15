@@ -9,11 +9,11 @@ cd "$(dirname "$0")"
 # Activate virtual environment (assuming it's in the current directory)
 source .venv/bin/activate
 
-# Install npm packages
-npm install
+# Install npm packages (offline mode)
+npm ci --offline
 
 # Build and minify Tailwind CSS
-npx tailwindcss -i ./src/static/css/input.css -o ./src/static/css/styles.css --minify
+npm run build
 
 # Start the Quart (local development only) server
 python main.py

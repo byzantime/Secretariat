@@ -36,13 +36,7 @@ async def _broadcast_todo_status():
         return
 
     # Render the todo status using the Jinja macro
-    from quart import render_template_string
-
-    template = """
-{%- from "macros/todo_status.html" import todo_status -%}
-{{ todo_status(todos) }}
-"""
-    html_content = await render_template_string(template, todos=todos)
+    html_content = await render_template("macros/todo_status.html", todos=todos)
     await _broadcast_event("status_update", html_content.strip())
 
 
@@ -190,10 +184,20 @@ async def _process_chat_message(conversation: Conversation, message: str):
 
 async def _broadcast_user_message(message: str):
     """Broadcast a user message to the UI."""
-    html_message = f"""<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-        <div class="font-semibold text-blue-800">You</div>
-        <div class="text-blue-700">{message}</div>
-    </div>"""
+    import secrets
+    from datetime import datetime
+
+    # Generate message ID and timestamp like in LLM service
+    message_id = secrets.token_urlsafe(8)
+    timestamp = datetime.now()
+
+    html_message = await render_template(
+        "macros/ui_message.html",
+        sender="You",
+        content=message,
+        message_id=message_id,
+        timestamp=timestamp,
+    )
     await _broadcast_event("streaming_text", html_message)
 
 

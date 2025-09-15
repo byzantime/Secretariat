@@ -1,6 +1,7 @@
 """LLMService using Pydantic AI agent framework."""
 
 import json
+import os
 import secrets
 from datetime import datetime
 from typing import Dict
@@ -17,7 +18,9 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.anthropic import AnthropicProvider
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
+from quart import render_template
 
+from src.routes import _broadcast_event
 from src.tools.todo_storage import todos_storage
 
 
@@ -55,7 +58,6 @@ class LLMService:
                 model_name=self.DEFAULT_MODEL,
                 provider=provider_instance,
             )
-
         elif provider == "openrouter":
             api_key = app.config["OPENROUTER_API_KEY"]
             model_name = app.config["OPENROUTER_MODEL"]
@@ -70,10 +72,10 @@ class LLMService:
                 model_name=model_name,
                 provider=provider_instance,
             )
-
         else:
             raise ValueError(
-                f"Unsupported LLM provider: {provider}. Supported: 'anthropic', 'openrouter'"
+                f"Unsupported LLM provider: {provider}. Supported: 'anthropic',"
+                " 'openrouter'"
             )
 
     def _create_browser_llm(self, app):
@@ -81,8 +83,9 @@ class LLMService:
         provider = app.config["LLM_PROVIDER"].lower()
 
         if provider != "anthropic":
-            current_app.logger.warning(
-                f"Browser automation is only supported with Anthropic provider, but '{provider}' is configured.",
+            app.logger.warning(
+                "Browser automation is only supported with Anthropic provider, but"
+                f" '{provider}' is configured.",
             )
             return None
 
@@ -95,8 +98,6 @@ class LLMService:
         model = self._create_model(app)
 
         # Load instructions from file
-        import os
-
         instructions_path = os.path.join(
             os.path.dirname(app.root_path), "agent_instructions.txt"
         )
@@ -183,7 +184,10 @@ class LLMService:
                     "in_progress": "🔄",
                     "completed": "✅",
                 }.get(todo["state"], "❓")
-                result += f"{i}. [{todo['state']}] {status_emoji} {todo['description']} (ID: {todo['id']})\n"
+                result += (
+                    f"{i}. [{todo['state']}] {status_emoji} {todo['description']} (ID:"
+                    f" {todo['id']})\n"
+                )
 
             return result.strip()
 
@@ -338,7 +342,10 @@ class LLMService:
                         "Error: Each task must have 'description' and 'state' fields."
                     )
                 if task["state"] not in valid_states:
-                    return f"Error: Invalid state '{task['state']}'. Must be one of: {', '.join(valid_states)}"
+                    return (
+                        f"Error: Invalid state '{task['state']}'. Must be one of:"
+                        f" {', '.join(valid_states)}"
+                    )
 
             # Generate simple IDs and create todos
             new_todos = []
@@ -459,7 +466,8 @@ class LLMService:
         message_history = conversation.get_pydantic_messages(last_n=self.max_history)
 
         current_app.logger.debug(
-            f"Conversation history for {conversation_id}: {len(message_history)} messages"
+            f"Conversation history for {conversation_id}:"
+            f" {len(message_history)} messages"
         )
 
         try:
@@ -489,7 +497,8 @@ class LLMService:
 
                 # Log the complete response only after streaming is done
                 current_app.logger.debug(
-                    f"LLM response completed for conversation {conversation_id}: {full_response}"
+                    f"LLM response completed for conversation {conversation_id}:"
+                    f" {full_response}"
                 )
 
                 # Update token counts
@@ -510,36 +519,25 @@ class LLMService:
 
     async def _send_initial_message(self, message_id: str, content: str):
         """Send the initial message HTML that gets appended to conversation area."""
-        from quart import render_template_string
-
-        from src.routes import _broadcast_event
-
         # Generate timestamp as datetime object
         timestamp = datetime.now()
 
-        template = """
-        {% from "macros/ui_messages.html" import ui_message %}
-        {{ ui_message("Assistant", content, message_id, timestamp) }}
-        """
-
-        html_message = await render_template_string(
-            template, content=content, message_id=message_id, timestamp=timestamp
+        html_message = await render_template(
+            "macros/ui_message.html",
+            sender="Assistant",
+            content=content,
+            message_id=message_id,
+            timestamp=timestamp,
         )
         await _broadcast_event("streaming_text", html_message)
 
     async def _send_message_update(self, message_id: str, content: str):
         """Send out-of-band update to replace message content within existing message."""
-        from quart import render_template_string
-
-        from src.routes import _broadcast_event
-
-        template = """
-        {% from "macros/ui_messages.html" import ui_message_update %}
-        {{ ui_message_update(content, message_id) }}
-        """
-
-        html_message = await render_template_string(
-            template, content=content, message_id=message_id
+        html_message = await render_template(
+            "macros/ui_message_update.html",
+            content=content,
+            message_id=message_id,
+            oob_swap=True,
         )
         await _broadcast_event(f"message-{message_id}-update", html_message)
 

@@ -1,0 +1,15 @@
+{% macro ui_message_update(content, message_id, oob_swap=False) %}
+{#
+  Renders an out-of-band update for message content
+
+  Args:
+    content: The updated message content
+    message_id: Unique ID for HTMX targeting
+#}
+<div id="msg-{{ message_id }}-content"
+     class="text-gray-700"
+     sse-swap="message-{{ message_id }}-update"
+     {% if oob_swap %}hx-swap-oob="true"{% endif %}>{{ content }}</div>
+{% endmacro %}
+
+{{ ui_message_update(content, message_id, oob_swap) }}
