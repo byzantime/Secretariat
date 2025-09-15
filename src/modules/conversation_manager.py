@@ -28,6 +28,7 @@ class Conversation:
     user_id: Optional[int] = None
     pydantic_messages: List["ModelMessage"] = field(default_factory=list)
     processing_task: Optional[asyncio.Task] = None
+    todos: List[Dict[str, str]] = field(default_factory=list)
 
     # Timestamps
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -67,6 +68,32 @@ class Conversation:
                 await self.processing_task
             except asyncio.CancelledError:
                 pass  # Expected when cancelling
+
+    def get_todos(self) -> List[Dict[str, str]]:
+        """Get the current todo list."""
+        return self.todos.copy()
+
+    async def set_todos(self, todos: List[Dict[str, str]]):
+        """Set the todo list and broadcast status update."""
+        self.todos = todos.copy()
+        await self._broadcast_todo_status()
+
+    async def _broadcast_todo_status(self):
+        """Broadcast current todo status to status line."""
+        # Import here to avoid circular imports
+        from quart import render_template
+
+        from src.routes import _broadcast_event
+
+        if not self.todos:
+            await _broadcast_event("status_update", "Ready")
+            return
+
+        # Render the todo status using the Jinja macro
+        html_content = await render_template(
+            "macros/todo_status.html", todos=self.todos
+        )
+        await _broadcast_event("status_update", html_content.strip())
 
 
 class ConversationManager:

@@ -13,7 +13,6 @@ from quart_auth import current_user
 
 from src.blueprints.auth import auth_bp
 from src.modules.conversation_manager import Conversation
-from src.tools.todo_storage import todos_storage
 
 # Create blueprints for different parts of the app
 main_bp = Blueprint("main", __name__)
@@ -23,21 +22,15 @@ _sse_clients: Dict[str, asyncio.Queue] = {}
 _current_conversation = None
 
 
-async def _broadcast_todo_status():
-    """Broadcast current todo status to status line."""
+async def _update_status(status_message: str = None):
+    """Update status, prioritizing todo display if todos exist."""
     global _current_conversation
-    if not _current_conversation:
-        await _broadcast_event("status_update", "Ready")
-        return
-
-    todos = todos_storage.get(_current_conversation.id, [])
-    if not todos:
-        await _broadcast_event("status_update", "Ready")
-        return
-
-    # Render the todo status using the Jinja macro
-    html_content = await render_template("macros/todo_status.html", todos=todos)
-    await _broadcast_event("status_update", html_content.strip())
+    if _current_conversation and _current_conversation.todos:
+        # Always show todos if they exist
+        await _current_conversation._broadcast_todo_status()
+    else:
+        # Show the provided status or "Ready" if none
+        await _broadcast_event("status_update", status_message or "Ready")
 
 
 @main_bp.route("/health")
@@ -68,14 +61,14 @@ async def send_message():
     if _current_conversation is None:
         _current_conversation = await conversation_manager.create_conversation()
         current_app.logger.info(f"Created new conversation: {_current_conversation.id}")
-        # Refresh todo status for new conversation
-        await _broadcast_todo_status()
+        # Refresh todo status for new conversation (empty todos)
+        await _current_conversation.set_todos([])
 
     conversation = _current_conversation
 
     # Notify chat started
     await _broadcast_event("automation_started", "")
-    await _broadcast_event("status_update", "Thinking...")
+    await _update_status("Thinking...")
 
     # Start chat processing in background and store task on conversation
     task = asyncio.create_task(_process_chat_message(conversation, message))
@@ -91,7 +84,7 @@ async def stop_chat():
     if _current_conversation:
         await _current_conversation.cancel_processing()
 
-    await _broadcast_event("status_update", "Stopped")
+    await _update_status("Stopped")
     await _broadcast_event("automation_complete", "")
     return "", 200
 
@@ -162,7 +155,7 @@ async def _process_chat_message(conversation: Conversation, message: str):
 
     # Get the LLM service
     llm_service = current_app.extensions["llm"]
-    await _broadcast_event("status_update", "Generating response...")
+    await _update_status("Generating response...")
 
     current_app.logger.info(
         "Pydantic message count before processing:"
@@ -171,14 +164,13 @@ async def _process_chat_message(conversation: Conversation, message: str):
     try:
         # Process the conversation with LLM
         await llm_service.process_and_respond(conversation.id, message)
-        # Refresh todo status after processing (in case todos were updated)
-        await _broadcast_todo_status()
     except asyncio.CancelledError:
         current_app.logger.info("Chat processing was cancelled")
-        await _broadcast_event("status_update", "Cancelled by user")
+        await _update_status("Cancelled by user")
         raise  # Re-raise to properly handle the cancellation
     finally:
         await _broadcast_event("automation_complete", "")
+        await _update_status()  # Show todos if they exist, otherwise "Ready"
 
 
 async def _broadcast_user_message(message: str):

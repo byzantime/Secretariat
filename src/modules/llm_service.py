@@ -19,7 +19,6 @@ from quart import current_app
 from quart import render_template
 
 from src.routes import _broadcast_event
-from src.tools.todo_storage import todos_storage
 
 
 class LLMService:
@@ -132,11 +131,11 @@ class LLMService:
             - Use this information to track progress and plan next steps
             - If no todos exist yet, an empty list will be returned
             """
-            conversation_id = ctx.deps.get("conversation_id")
-            if not conversation_id:
+            conversation = ctx.deps.get("conversation")
+            if not conversation:
                 return "Error: No conversation context available."
 
-            todos = todos_storage.get(conversation_id, [])
+            todos = conversation.get_todos()
 
             if not todos:
                 return "No todos found for this conversation."
@@ -282,8 +281,8 @@ class LLMService:
 
             When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.
             """
-            conversation_id = ctx.deps.get("conversation_id")
-            if not conversation_id:
+            conversation = ctx.deps.get("conversation")
+            if not conversation:
                 return "Error: No conversation context available."
 
             if not tasks:
@@ -321,11 +320,8 @@ class LLMService:
                 }
                 new_todos.append(todo)
 
-            # Replace entire todo list atomically
-            todos_storage[conversation_id] = new_todos
-
-            # Broadcast todo status update
-            await self._broadcast_todo_status_update()
+            # Set todos on conversation (automatically broadcasts status update)
+            await conversation.set_todos(new_todos)
 
             # Return summary
             state_counts = {}
@@ -411,13 +407,6 @@ class LLMService:
 
             current_app.logger.info(f"Browser automation completed: {task}")
             return success_msg
-
-    async def _broadcast_todo_status_update(self):
-        """Broadcast todo status update to the UI."""
-        # Import here to avoid circular imports
-        from src.routes import _broadcast_todo_status
-
-        await _broadcast_todo_status()
 
     async def process_and_respond(self, conversation_id: UUID, user_message: str):
         """Process conversation history and generate a response."""
