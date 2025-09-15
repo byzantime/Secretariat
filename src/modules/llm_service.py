@@ -13,9 +13,7 @@ from zoneinfo import ZoneInfo
 import browser_use
 from pydantic_ai import Agent
 from pydantic_ai import RunContext
-from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.anthropic import AnthropicProvider
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
 from quart import render_template
@@ -27,13 +25,6 @@ from src.tools.todo_storage import todos_storage
 class LLMService:
     """Service for interacting with LLMs using Pydantic AI."""
 
-    # Constants
-    DEFAULT_MODEL = "claude-3-haiku-20240307"
-    DEFAULT_MAX_TOKENS = 1000
-    DEFAULT_TEMPERATURE = 0
-    CHUNK_SIZE_THRESHOLD = 30
-    EXTRACTION_MAX_TOKENS = 500
-
     def __init__(self, app=None):
         self.agent = None
         self.extraction_agent = None
@@ -44,53 +35,29 @@ class LLMService:
 
     def _create_model(self, app):
         """Create model based on provider configuration."""
-        provider = app.config["LLM_PROVIDER"].lower()
+        api_key = app.config["OPENROUTER_API_KEY"]
+        model_name = app.config["OPENROUTER_MODEL"]
 
-        if provider == "anthropic":
-            api_key = app.config["ANTHROPIC_API_KEY"]
-            if not api_key:
-                raise ValueError(
-                    "ANTHROPIC_API_KEY is required when using Anthropic provider"
-                )
-
-            provider_instance = AnthropicProvider(api_key=api_key)
-            return AnthropicModel(
-                model_name=self.DEFAULT_MODEL,
-                provider=provider_instance,
-            )
-        elif provider == "openrouter":
-            api_key = app.config["OPENROUTER_API_KEY"]
-            model_name = app.config["OPENROUTER_MODEL"]
-
-            if not api_key:
-                raise ValueError(
-                    "OPENROUTER_API_KEY is required when using OpenRouter provider"
-                )
-
-            provider_instance = OpenRouterProvider(api_key=api_key)
-            return OpenAIChatModel(
-                model_name=model_name,
-                provider=provider_instance,
-            )
-        else:
+        if not api_key:
             raise ValueError(
-                f"Unsupported LLM provider: {provider}. Supported: 'anthropic',"
-                " 'openrouter'"
+                "OPENROUTER_API_KEY is required when using OpenRouter provider"
             )
+
+        provider_instance = OpenRouterProvider(api_key=api_key)
+        return OpenAIChatModel(
+            model_name=model_name,
+            provider=provider_instance,
+        )
 
     def _create_browser_llm(self, app):
         """Create browser-use compatible LLM using existing configuration."""
-        provider = app.config["LLM_PROVIDER"].lower()
-
-        if provider != "anthropic":
-            app.logger.warning(
-                "Browser automation is only supported with Anthropic provider, but"
-                f" '{provider}' is configured.",
-            )
-            return None
-
-        api_key = app.config["ANTHROPIC_API_KEY"]
-        return browser_use.ChatAnthropic(model=self.DEFAULT_MODEL, api_key=api_key)
+        api_key = app.config["OPENROUTER_API_KEY"]
+        model_name = app.config["BROWSER_USE_MODEL"]
+        return browser_use.ChatOpenAI(
+            model=model_name,
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
+        )
 
     def init_app(self, app):
         """Initialise LLM service with app."""
@@ -140,10 +107,7 @@ class LLMService:
         # Register tools
         self._register_tools()
 
-        provider_name = app.config["LLM_PROVIDER"]
-        app.logger.info(
-            f"LLMService initialised with Pydantic AI using {provider_name} provider"
-        )
+        app.logger.info("LLMService initialised")
         app.extensions["llm"] = self
 
     def _register_tools(self):
@@ -408,7 +372,7 @@ class LLMService:
             # Initialize browser if needed
             if self.browser_instance is None:
                 self.browser_instance = browser_use.Browser(
-                    headless=True,
+                    headless=False,
                     keep_alive=True,  # Persistent session
                 )
 
