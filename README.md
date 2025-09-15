@@ -1,4 +1,4 @@
-# Yet to be named
+# Secretariat
 
 An open-source AI-powered personal assistant.
 
