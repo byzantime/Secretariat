@@ -73,8 +73,7 @@ class LLMService:
 
         else:
             raise ValueError(
-                f"Unsupported LLM provider: {provider}. Supported: 'anthropic',"
-                " 'openrouter'"
+                f"Unsupported LLM provider: {provider}. Supported: 'anthropic', 'openrouter'"
             )
 
     def _create_browser_llm(self, app):
@@ -83,8 +82,7 @@ class LLMService:
 
         if provider != "anthropic":
             current_app.logger.warning(
-                "Browser automation is only supported with Anthropic provider, but"
-                f" '{provider}' is configured.",
+                f"Browser automation is only supported with Anthropic provider, but '{provider}' is configured.",
             )
             return None
 
@@ -185,10 +183,7 @@ class LLMService:
                     "in_progress": "🔄",
                     "completed": "✅",
                 }.get(todo["state"], "❓")
-                result += (
-                    f"{i}. [{todo['state']}] {status_emoji} {todo['description']} (ID:"
-                    f" {todo['id']})\n"
-                )
+                result += f"{i}. [{todo['state']}] {status_emoji} {todo['description']} (ID: {todo['id']})\n"
 
             return result.strip()
 
@@ -343,10 +338,7 @@ class LLMService:
                         "Error: Each task must have 'description' and 'state' fields."
                     )
                 if task["state"] not in valid_states:
-                    return (
-                        f"Error: Invalid state '{task['state']}'. Must be one of:"
-                        f" {', '.join(valid_states)}"
-                    )
+                    return f"Error: Invalid state '{task['state']}'. Must be one of: {', '.join(valid_states)}"
 
             # Generate simple IDs and create todos
             new_todos = []
@@ -456,37 +448,6 @@ class LLMService:
 
         await _broadcast_todo_status()
 
-    async def respond_with_context(
-        self, conversation_id: UUID, messages: list, tools: Optional[List[Dict]] = None
-    ):
-        """Call the LLM with a specific context and optional tools."""
-        current_app.logger.debug(f"LLM call for conversation {conversation_id}")
-
-        conversation = await self._get_conversation(conversation_id)
-        deps = {"conversation_id": conversation_id, "conversation": conversation}
-
-        try:
-            async with self.agent.run_stream(
-                user_prompt="", message_history=messages, deps=deps
-            ) as result:
-                async for text in result.stream_text():
-                    yield text
-
-                # Get the final message with potential usage info
-                final_message = await result.get_data()
-                await self._update_token_counts(conversation, result)
-
-                # Store result in conversation's pydantic messages
-                conversation.store_run_result(result)
-
-                yield final_message
-
-        except Exception as e:
-            current_app.logger.error(
-                f"Error in LLM response generation: {str(e)}", exc_info=True
-            )
-            raise
-
     async def process_and_respond(self, conversation_id: UUID, user_message: str):
         """Process conversation history and generate a response."""
         conversation = await self._get_conversation(conversation_id)
@@ -498,8 +459,7 @@ class LLMService:
         message_history = conversation.get_pydantic_messages(last_n=self.max_history)
 
         current_app.logger.debug(
-            f"Conversation history for {conversation_id}:"
-            f" {len(message_history)} messages"
+            f"Conversation history for {conversation_id}: {len(message_history)} messages"
         )
 
         try:
@@ -507,6 +467,7 @@ class LLMService:
             deps = {"conversation_id": conversation_id, "conversation": conversation}
 
             message_id = None
+            full_response = ""
 
             # Run the agent with streaming
             async with self.agent.run_stream(
@@ -515,7 +476,8 @@ class LLMService:
                 deps=deps,
             ) as result:
                 async for text in result.stream_text():
-                    current_app.logger.debug(f"Received streaming text: {text}...")
+                    # Accumulate the full response
+                    full_response = text
 
                     # Create message placeholder on first chunk, then send updates
                     if message_id is None:
@@ -524,6 +486,11 @@ class LLMService:
                     else:
                         # Send out-of-band update to replace content
                         await self._send_message_update(message_id, text)
+
+                # Log the complete response only after streaming is done
+                current_app.logger.debug(
+                    f"LLM response completed for conversation {conversation_id}: {full_response}"
+                )
 
                 # Update token counts
                 await self._update_token_counts(conversation, result)
@@ -562,7 +529,6 @@ class LLMService:
 
     async def _send_message_update(self, message_id: str, content: str):
         """Send out-of-band update to replace message content within existing message."""
-        current_app.logger.debug(f"Sending OOB update for {message_id}: {content}")
         from quart import render_template_string
 
         from src.routes import _broadcast_event
