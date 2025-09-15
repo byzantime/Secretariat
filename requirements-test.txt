@@ -1,10 +1,14 @@
-aiohttp==3.12.13
-jellyfish==1.1.0
-phonenumbers==8.13.51
-pytest==8.3.4
-pytest_asyncio==0.26.0
-pyyaml==6.0.2
-quart-auth==0.11.0
-quart-flask-patch==0.3.0
-Quart==0.19.6
-sqlalchemy==2.0.43
+# Test dependencies for CI/CD pipeline
+# Include all dependencies from requirements.txt plus test-specific packages
+
+# Base dependencies
+-r requirements.txt
+
+# Testing framework
+pytest>=8.0.0
+pytest-asyncio>=0.26.0
+pytest-cov>=6.0.0
+pytest-mock>=3.14.0
+
+# Test utilities
+coverage>=7.0.0

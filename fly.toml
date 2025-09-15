@@ -26,28 +26,6 @@ org = 'apparat'
     method = 'GET'
     path = '/health'
 
-[[services]]
-  protocol = 'udp'
-  internal_port = 5060
-
-  [[services.ports]]
-    port = 5060
-
-[[services]]
-  protocol = 'tcp'
-  internal_port = 5060
-
-  [[services.ports]]
-    port = 5060
-
-[[services]]
-  protocol = 'tcp'
-  internal_port = 5061
-
-  [[services.ports]]
-    port = 5061
-    handlers = ['tls']
-
 [[vm]]
   memory = '2gb'
   cpu_kind = 'shared'
