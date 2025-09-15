@@ -82,13 +82,21 @@ class LLMService:
         # Create model based on provider configuration
         model = self._create_model(app)
 
+        # Load instructions from file
+        import os
+
+        instructions_path = os.path.join(
+            os.path.dirname(app.root_path), "agent_instructions.txt"
+        )
+        with open(instructions_path, "r", encoding="utf-8") as f:
+            instructions_content = f.read()
+
         # Create the main agent with tools
         self.agent = Agent(
             model=model,
             deps_type=dict,  # We'll pass conversation context as deps
-            system_prompt=(
-                "You are a helpful AI assistant. Be friendly and informative."
-            ),
+            system_prompt="You are a helpful AI assistant.",
+            instructions=instructions_content,
         )
 
         # Create extraction agent for structured data extraction
@@ -490,7 +498,7 @@ class LLMService:
                 deps=deps,
             ) as result:
                 async for text in result.stream_text():
-                    current_app.logger.debug(f"Received streaming text: {text[:20]}...")
+                    current_app.logger.debug(f"Received streaming text: {text}...")
 
                     # Create message placeholder on first chunk, then send updates
                     if message_id is None:
