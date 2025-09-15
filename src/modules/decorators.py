@@ -6,24 +6,6 @@ from quart import current_app
 from quart import g
 
 
-def inject_user_id(user_id):
-    """Decorator to inject user_id into g.user for SSE route handlers."""
-
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Set up a minimal user object in g if not present
-            if not hasattr(g, "user") or g.user is None:
-                user_manager = current_app.extensions["user_manager"]
-                g.user = await user_manager.get_user(user_id)
-
-            return await func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
 def _format_execution_time(func_name, execution_time, is_error=False, error=None):
     """Format execution time with appropriate units and precision."""
     if execution_time < 1.0:

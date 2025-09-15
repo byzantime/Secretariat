@@ -463,9 +463,6 @@ class LLMService:
         except Exception as e:
             await self._handle_general_error(conversation, e)
         finally:
-            await current_app.extensions["event_handler"].emit_to_services(
-                "speak_end", conversation_id, {}
-            )
             current_app.logger.info(
                 f"LLM streaming completed for conversation {conversation_id}"
             )
