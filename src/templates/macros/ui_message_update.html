@@ -9,7 +9,7 @@
 <div id="msg-{{ message_id }}-content"
      class="text-gray-700"
      sse-swap="message-{{ message_id }}-update"
-     {% if oob_swap %}hx-swap-oob="true"{% endif %}>{{ content }}</div>
+     {% if oob_swap %}hx-swap-oob="true"{% endif %}>{{ content|replace('\n', '<br>')|safe }}</div>
 {% endmacro %}
 
 {{ ui_message_update(content, message_id, oob_swap) }}

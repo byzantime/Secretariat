@@ -119,7 +119,6 @@ async def chat_events():
                     event_type, data = await asyncio.wait_for(
                         client_queue.get(), timeout=30.0
                     )
-                    # Ensure proper UTF-8 encoding and escape newlines in data
                     escaped_data = data.replace("\n", "")
                     yield f"event: {event_type}\ndata: {escaped_data}\n\n"
                 except asyncio.TimeoutError:
