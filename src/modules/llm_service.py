@@ -131,6 +131,7 @@ class LLMService:
             - Use this information to track progress and plan next steps
             - If no todos exist yet, an empty list will be returned
             """
+            current_app.logger.info("🔧 TOOL CALLED: todo_read")
             conversation = ctx.deps.get("conversation")
             if not conversation:
                 return "Error: No conversation context available."
@@ -281,6 +282,9 @@ class LLMService:
 
             When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.
             """
+            current_app.logger.info(
+                f"🔧 TOOL CALLED: todo_write with {len(tasks) if tasks else 0} tasks"
+            )
             conversation = ctx.deps.get("conversation")
             if not conversation:
                 return "Error: No conversation context available."
@@ -342,20 +346,26 @@ class LLMService:
             return summary
 
         @self.agent.tool
-        async def browser_automation(ctx: RunContext[dict], task: str) -> str:
-            """Use this tool to automate browser tasks like web navigation, form filling, data extraction, and more.
+        async def browse_web(ctx: RunContext[dict], task: str) -> str:
+            """Use this tool when the user asks to visit, open, navigate to, or browse any website.
 
-            This tool uses an AI-powered browser automation agent that can:
-            - Navigate to websites and interact with elements
+            **When to use this tool:**
+            - User says "open [website]" or "go to [website]"
+            - User asks to visit a specific webpage or URL
+            - User wants to browse, navigate, or access any web content
+            - User requests web searches, online research, or data extraction
+            - User asks to interact with websites (fill forms, click buttons, etc.)
+
+            This tool controls a persistent browser that can:
+            - Navigate to any website or URL
+            - Search for information online
             - Fill out forms and submit data
-            - Extract information from web pages
-            - Handle complex multi-step workflows
-            - Wait for human intervention when needed (2FA, captcha, etc.)
-
-            The browser session is persistent, so authentication and login state is maintained across tasks.
+            - Extract text, data, or content from web pages
+            - Handle login flows (will pause for user input when needed)
+            - Maintain session state across multiple requests
 
             Args:
-                task: A clear description of what you want the browser to do.
+                task: Describe what to do on the web. Be specific about the website and action.
                       Examples:
                       - "Go to google.com and search for 'best restaurants near me'"
                       - "Navigate to amazon.com, search for 'wireless headphones', and get the first 3 product details"
@@ -363,8 +373,9 @@ class LLMService:
                       - "Go to my bank website and check my account balance" (will pause for human login)
 
             Returns:
-                A description of what was accomplished, including any extracted data or final results.
+                A description of what was accomplished, including any extracted data or results.
             """
+            current_app.logger.info(f"🔧 TOOL CALLED: browse_web - task: {task}")
             # Initialize browser if needed
             if self.browser_instance is None:
                 self.browser_instance = browser_use.Browser(
@@ -380,21 +391,19 @@ class LLMService:
                 browser=self.browser_instance,
             )
 
-            # Run the browser automation task
-            current_app.logger.info(f"Starting browser automation task: {task}")
+            # Run the web browsing task
+            current_app.logger.info(f"Starting web browsing task: {task}")
             history = await browser_agent.run()
 
             # Extract results
             if history and hasattr(history, "final_result"):
                 result = history.final_result()
                 if result:
-                    success_msg = (
-                        f"✅ Browser automation completed successfully:\n{result}"
-                    )
+                    success_msg = f"✅ Web browsing completed successfully:\n{result}"
                 else:
-                    success_msg = f"✅ Browser automation task completed: {task}"
+                    success_msg = f"✅ Web browsing task completed: {task}"
             else:
-                success_msg = f"✅ Browser automation task completed: {task}"
+                success_msg = f"✅ Web browsing task completed: {task}"
 
             # Add screenshot info if available
             if (
@@ -405,7 +414,7 @@ class LLMService:
                 screenshots = history.screenshot_paths()
                 success_msg += f"\n📷 Screenshots saved: {len(screenshots)} files"
 
-            current_app.logger.info(f"Browser automation completed: {task}")
+            current_app.logger.info(f"Web browsing completed: {task}")
             return success_msg
 
     async def process_and_respond(self, conversation_id: UUID, user_message: str):
@@ -430,7 +439,12 @@ class LLMService:
             message_id = None
             full_response = ""
 
-            # Run the agent with streaming
+            # Log the start of LLM processing
+            current_app.logger.info(
+                f"🤖 Starting LLM processing for: {user_message[:100]}..."
+            )
+
+            # Use iter for streaming with complete tool execution
             async with self.agent.run_stream(
                 user_prompt=user_message,
                 message_history=message_history[:-1],
@@ -454,11 +468,37 @@ class LLMService:
                     f" {full_response}"
                 )
 
-                # Update token counts
-                await self._update_token_counts(conversation, result)
+            # Log the complete response only after streaming is done
+            current_app.logger.debug(
+                f"LLM response completed for conversation {conversation_id}:"
+                f" {full_response}"
+            )
 
-                # Store the run result for future message history
-                conversation.store_run_result(result)
+            # Log tool usage information using correct Pydantic AI message structure
+            tool_calls = []
+            if hasattr(result, "new_messages"):
+                for msg in result.new_messages():
+                    if hasattr(msg, "parts"):
+                        for part in msg.parts:
+                            # Check for ToolCallPart in message parts
+                            if (
+                                hasattr(part, "part_kind")
+                                and part.part_kind == "tool-call"
+                            ):
+                                tool_calls.append(part.tool_name)
+
+            if tool_calls:
+                current_app.logger.info(
+                    f"🔧 TOOLS USED: {', '.join(set(tool_calls))}"  # Use set to avoid duplicates
+                )
+            else:
+                current_app.logger.info("🚫 NO TOOLS USED in this response")
+
+            # Update token counts
+            await self._update_token_counts(conversation, result)
+
+            # Store the run result for future message history
+            conversation.store_run_result(result)
 
         except Exception as e:
             await self._handle_general_error(conversation, e)

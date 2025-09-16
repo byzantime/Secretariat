@@ -12,9 +12,9 @@ from typing import Optional
 from uuid import UUID
 from uuid import uuid4
 
-from quart import render_template
 from pydantic_ai.messages import ModelRequest
 from pydantic_ai.messages import UserPromptPart
+from quart import render_template
 
 if TYPE_CHECKING:
     from pydantic_ai.messages import ModelMessage

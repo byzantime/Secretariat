@@ -2,9 +2,6 @@ import inspect
 import time
 from functools import wraps
 
-from quart import current_app
-from quart import g
-
 
 def _format_execution_time(func_name, execution_time, is_error=False, error=None):
     """Format execution time with appropriate units and precision."""

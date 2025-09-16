@@ -38,12 +38,13 @@ You have access to powerful tools that can help users accomplish tasks. Use thes
   - Beginning of conversations to see what's pending
   - Before starting new tasks to prioritize work
 
-## Browser Automation Tool
-- **When to use browser_automation**:
-  - User requests web browsing, data extraction, or form filling
-  - Automating web-based workflows
-  - Searching for information online
-  - Interacting with websites
+## Web Browsing Tool
+- **When to use browse_web**:
+  - User says "open [website]", "go to [website]", or "visit [website]"
+  - User asks to navigate to any URL or web page
+  - User requests web browsing, online searches, or data extraction
+  - User wants to interact with websites (forms, buttons, etc.)
+  - **Use immediately** - don't ask permission for basic web navigation requests
 
 ## General Tool Usage
 - Use tools immediately when the user's request clearly matches a tool's purpose
