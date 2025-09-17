@@ -2,6 +2,7 @@
 
 import asyncio
 from typing import Dict
+from typing import Optional
 
 from quart import Blueprint
 from quart import current_app
@@ -22,7 +23,7 @@ _sse_clients: Dict[str, asyncio.Queue] = {}
 _current_conversation = None
 
 
-async def _update_status(status_message: str = None):
+async def _update_status(status_message: Optional[str] = None):
     """Update status, prioritizing todo display if todos exist."""
     global _current_conversation
     if _current_conversation and _current_conversation.todos:
@@ -30,7 +31,8 @@ async def _update_status(status_message: str = None):
         await _current_conversation._broadcast_todo_status()
     else:
         # Show the provided status or "Ready" if none
-        await _broadcast_event("status_update", status_message or "Ready")
+        status_text = status_message or "Ready"
+        await _broadcast_event("status_update", status_text)
 
 
 @main_bp.route("/health")
@@ -142,7 +144,6 @@ async def chat_events():
             "Access-Control-Allow-Origin": "*",  # CORS support
         },
     )
-    response.timeout = None
     return response
 
 
@@ -174,22 +175,12 @@ async def _process_chat_message(conversation: Conversation, message: str):
 
 
 async def _broadcast_user_message(message: str):
-    """Broadcast a user message to the UI."""
-    import secrets
-    from datetime import datetime
-
-    # Generate message ID and timestamp like in LLM service
-    message_id = secrets.token_urlsafe(8)
-    timestamp = datetime.now()
-
-    html_message = await render_template(
-        "macros/ui_message.html",
-        sender="You",
-        content=message,
-        message_id=message_id,
-        timestamp=timestamp,
-    )
-    await _broadcast_event("streaming_text", html_message)
+    """Broadcast a user message to the UI using UserMessagingService."""
+    user_messaging = current_app.extensions["user_messaging"]
+    # Use the global conversation for user messages
+    global _current_conversation
+    if _current_conversation:
+        await user_messaging.send_user_message(_current_conversation.id, message)
 
 
 async def _broadcast_event(event_type: str, data: str):

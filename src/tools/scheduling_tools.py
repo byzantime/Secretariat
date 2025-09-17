@@ -5,6 +5,7 @@ from typing import Any
 from typing import Dict
 
 from pydantic_ai import RunContext
+from quart import current_app
 
 
 async def setup_automation(
@@ -73,13 +74,6 @@ async def setup_automation(
         agent_instructions = "Generate and email a summary of this week's completed tasks"
         schedule_config = {"type": "cron", "when": "0 9 * * 5"}  # Friday 9 AM
     """
-    # Get the scheduling service from the app
-    from quart import current_app
-
-    scheduling_service = current_app.extensions.get("scheduling")
-    if not scheduling_service:
-        raise RuntimeError("Scheduling service not available")
-
     # Get conversation ID from context
     conversation_id = ctx.deps.get("conversation_id")
     if not conversation_id:
@@ -89,6 +83,7 @@ async def setup_automation(
     task_id = uuid.uuid4()
 
     # Schedule the task
+    scheduling_service = current_app.extensions["scheduling"]
     job_id = await scheduling_service.schedule_agent_execution(
         task_id=task_id,
         conversation_id=conversation_id,

@@ -12,9 +12,7 @@ from pydantic_ai import capture_run_messages
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
-from quart import render_template
 
-from src.routes import _broadcast_event
 from src.tools.browser_tools import browse_web
 from src.tools.scheduling_tools import setup_automation
 from src.tools.todo_tools import todo_read
@@ -122,6 +120,9 @@ class LLMService:
             f" {len(message_history)} messages"
         )
 
+        # Get event handler for emitting events
+        event_handler = current_app.extensions["event_handler"]
+
         try:
             # Set up context for tools
             deps = {"conversation_id": conversation_id, "conversation": conversation}
@@ -140,6 +141,14 @@ class LLMService:
             )
             current_app.logger.info(f"Current system time: {current_time}")
 
+            # Emit message start event
+            message_id = secrets.token_urlsafe(8)
+            await event_handler.emit_to_services(
+                "llm.message.start",
+                conversation_id,
+                {"message_id": message_id, "content": ""},
+            )
+
             # Use capture_run_messages to debug system prompts
             with capture_run_messages() as captured_messages:
                 try:
@@ -153,13 +162,15 @@ class LLMService:
                             # Accumulate the full response
                             full_response = text
 
-                            # Create message placeholder on first chunk, then send updates
-                            if message_id is None:
-                                message_id = secrets.token_urlsafe(8)
-                                await self._send_initial_message(message_id, text)
-                            else:
-                                # Send out-of-band update to replace content
-                                await self._send_message_update(message_id, text)
+                            # Emit message chunk events for streaming updates
+                            await event_handler.emit_to_services(
+                                "llm.message.chunk",
+                                conversation_id,
+                                {
+                                    "message_id": message_id,
+                                    "content": text,
+                                },
+                            )
 
                         # Log the complete response only after streaming is done
                         current_app.logger.debug(
@@ -179,6 +190,13 @@ class LLMService:
                         f"Captured messages on error: {captured_messages}"
                     )
                     raise
+
+            # Emit message complete event
+            await event_handler.emit_to_services(
+                "llm.message.complete",
+                conversation_id,
+                {"message_id": message_id, "content": full_response},
+            )
 
             # Log the complete response only after streaming is done
             current_app.logger.debug(
@@ -204,8 +222,16 @@ class LLMService:
                                 tool_calls.append(tool_info)
 
             if tool_calls:
-                # Log each tool call with its parameters
+                # Emit tool called events
                 for tool_call in tool_calls:
+                    await event_handler.emit_to_services(
+                        "llm.tool.called",
+                        conversation_id,
+                        {
+                            "tool_name": tool_call["tool_name"],
+                            "tool_args": tool_call["tool_args"],
+                        },
+                    )
                     current_app.logger.info(
                         f"🔧 TOOL CALLED: {tool_call['tool_name']} with args:"
                         f" {tool_call['tool_args']}"
@@ -223,32 +249,15 @@ class LLMService:
             conversation.store_run_result(result)
 
         except Exception as e:
+            # Emit error event
+            await event_handler.emit_to_services(
+                "llm.error", conversation_id, {"error": str(e)}
+            )
             await self._handle_general_error(conversation, e)
         finally:
             current_app.logger.info(
                 f"LLM streaming completed for conversation {conversation_id}"
             )
-
-    async def _send_initial_message(self, message_id: str, content: str):
-        """Send the initial message HTML that gets appended to conversation area."""
-        html_message = await render_template(
-            "macros/ui_message.html",
-            sender="Assistant",
-            content=content,
-            message_id=message_id,
-            timestamp=datetime.now(),
-        )
-        await _broadcast_event("streaming_text", html_message)
-
-    async def _send_message_update(self, message_id: str, content: str):
-        """Send out-of-band update to replace message content within existing message."""
-        html_message = await render_template(
-            "macros/ui_message_update.html",
-            content=content,
-            message_id=message_id,
-            oob_swap=True,
-        )
-        await _broadcast_event(f"message-{message_id}-update", html_message)
 
     async def _handle_general_error(self, conversation, error):
         """Handle general errors during LLM processing."""

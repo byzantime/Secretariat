@@ -141,10 +141,8 @@ class SchedulingService:
         current_app.logger.info(f"Executing scheduled agent task {task_id}")
 
         try:
-            # Get database from app extensions
-            db = current_app.extensions["database"]
-
             # Update task status to running
+            db = current_app.extensions["database"]
             async with db.session_factory() as session:
                 task = await ScheduledTask.get_by_id(session, task_id)
                 if task is not None:
