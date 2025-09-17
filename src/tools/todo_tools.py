@@ -43,7 +43,10 @@ async def todo_read(ctx: RunContext[dict]) -> str:
             "in_progress": "🔄",
             "completed": "✅",
         }.get(todo["state"], "❓")
-        result += f"{i}. [{todo['state']}] {status_emoji} {todo['description']} (ID: {todo['id']})\n"
+        result += (
+            f"{i}. [{todo['state']}] {status_emoji} {todo['description']} (ID:"
+            f" {todo['id']})\n"
+        )
 
     return result.strip()
 
@@ -174,7 +177,9 @@ async def todo_write(ctx: RunContext[dict], tasks: List[Dict[str, str]]) -> str:
 
     When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.
     """
-    current_app.logger.info(f"🔧 TOOL CALLED: todo_write with {len(tasks) if tasks else 0} tasks")
+    current_app.logger.info(
+        f"🔧 TOOL CALLED: todo_write with {len(tasks) if tasks else 0} tasks"
+    )
     conversation = ctx.deps.get("conversation")
     if not conversation:
         return "Error: No conversation context available."
@@ -195,7 +200,10 @@ async def todo_write(ctx: RunContext[dict], tasks: List[Dict[str, str]]) -> str:
         if "description" not in task or "state" not in task:
             return "Error: Each task must have 'description' and 'state' fields."
         if task["state"] not in valid_states:
-            return f"Error: Invalid state '{task['state']}'. Must be one of: {', '.join(valid_states)}"
+            return (
+                f"Error: Invalid state '{task['state']}'. Must be one of:"
+                f" {', '.join(valid_states)}"
+            )
 
     # Generate simple IDs and create todos
     new_todos = []

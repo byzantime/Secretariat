@@ -4,6 +4,7 @@ import logging
 from typing import AsyncGenerator
 
 from sqlalchemy import MetaData
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -26,6 +27,7 @@ class Database:
     def __init__(self, app=None):
         self.engine = None
         self.session_factory = None
+        self.sync_engine = None  # Sync engine for APScheduler
         if app is not None:
             self.init_app(app)
 
@@ -65,6 +67,16 @@ class Database:
             },
         )
 
+        # Create sync engine for APScheduler (use psycopg2 driver)
+        sync_database_url = database_url.replace("+asyncpg", "+psycopg2")
+        self.sync_engine = create_engine(
+            sync_database_url,
+            echo=should_echo,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+        )
+
         # Create session factory
         self.session_factory = async_sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
@@ -93,3 +105,5 @@ class Database:
         """Close database connection."""
         if self.engine:
             await self.engine.dispose()
+        if self.sync_engine:
+            self.sync_engine.dispose()

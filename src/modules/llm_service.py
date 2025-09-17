@@ -8,12 +8,17 @@ from zoneinfo import ZoneInfo
 
 from pydantic_ai import Agent
 from pydantic_ai import RunContext
+from pydantic_ai import capture_run_messages
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
 from quart import render_template
 
 from src.routes import _broadcast_event
+from src.tools.browser_tools import browse_web
+from src.tools.scheduling_tools import setup_automation
+from src.tools.todo_tools import todo_read
+from src.tools.todo_tools import todo_write
 
 
 class LLMService:
@@ -75,14 +80,19 @@ class LLMService:
             ),
         )
 
-        # Add dynamic system prompt for time context
-        @self.agent.system_prompt
+        @self.agent.instructions  # Changed from @self.agent.system_prompt
         def add_time_context(ctx: RunContext[dict]) -> str:
-            """Add current time context to system prompt."""
+            """Add current time context with explicit guidance for tool usage."""
             current_time = datetime.now(ZoneInfo("Pacific/Auckland")).strftime(
                 "%A %-d %B %Y, %-I:%M %P"
             )
-            return f"The current date and time is {current_time}."
+            return (
+                f"The current date and time is {current_time}.\nIMPORTANT: When"
+                " scheduling tasks or generating datetime strings for tools, you MUST"
+                f" use the current year ({current_time.split()[-3]}) and current date"
+                " as provided above. Do not use outdated years from your training"
+                " data."
+            )
 
         # Register tools
         self._register_tools()
@@ -92,14 +102,10 @@ class LLMService:
 
     def _register_tools(self):
         """Register tools with the agent."""
-        from src.tools.browser_tools import browse_web
-        from src.tools.todo_tools import todo_read
-        from src.tools.todo_tools import todo_write
-
-        # Register imported tools with the agent
         self.agent.tool(todo_read)
         self.agent.tool(todo_write)
         self.agent.tool(browse_web)
+        self.agent.tool(setup_automation)
 
     async def process_and_respond(self, conversation_id: UUID, user_message: str):
         """Process conversation history and generate a response."""
@@ -112,7 +118,8 @@ class LLMService:
         message_history = conversation.get_pydantic_messages(last_n=self.max_history)
 
         current_app.logger.debug(
-            f"Conversation history for {conversation_id}: {len(message_history)} messages"
+            f"Conversation history for {conversation_id}:"
+            f" {len(message_history)} messages"
         )
 
         try:
@@ -127,32 +134,56 @@ class LLMService:
                 f"🤖 Starting LLM processing for: {user_message[:100]}..."
             )
 
-            # Use iter for streaming with complete tool execution
-            async with self.agent.run_stream(
-                user_prompt=user_message,
-                message_history=message_history[:-1],
-                deps=deps,
-            ) as result:
-                async for text in result.stream_text():
-                    # Accumulate the full response
-                    full_response = text
+            # Log current time for debugging
+            current_time = datetime.now(ZoneInfo("Pacific/Auckland")).strftime(
+                "%A %-d %B %Y, %-I:%M %P"
+            )
+            current_app.logger.info(f"Current system time: {current_time}")
 
-                    # Create message placeholder on first chunk, then send updates
-                    if message_id is None:
-                        message_id = secrets.token_urlsafe(8)
-                        await self._send_initial_message(message_id, text)
-                    else:
-                        # Send out-of-band update to replace content
-                        await self._send_message_update(message_id, text)
+            # Use capture_run_messages to debug system prompts
+            with capture_run_messages() as captured_messages:
+                try:
+                    # Use iter for streaming with complete tool execution
+                    async with self.agent.run_stream(
+                        user_prompt=user_message,
+                        message_history=message_history[:-1],
+                        deps=deps,
+                    ) as result:
+                        async for text in result.stream_text():
+                            # Accumulate the full response
+                            full_response = text
 
-                # Log the complete response only after streaming is done
-                current_app.logger.debug(
-                    f"LLM response completed for conversation {conversation_id}: {full_response}"
-                )
+                            # Create message placeholder on first chunk, then send updates
+                            if message_id is None:
+                                message_id = secrets.token_urlsafe(8)
+                                await self._send_initial_message(message_id, text)
+                            else:
+                                # Send out-of-band update to replace content
+                                await self._send_message_update(message_id, text)
+
+                        # Log the complete response only after streaming is done
+                        current_app.logger.debug(
+                            "LLM response completed for conversation"
+                            f" {conversation_id}: {full_response}"
+                        )
+
+                        # Log captured messages for debugging
+                        if captured_messages:
+                            current_app.logger.info(
+                                f"Captured messages: {captured_messages}"
+                            )
+
+                except Exception as e:
+                    current_app.logger.error(f"Error during agent run: {e}")
+                    current_app.logger.error(
+                        f"Captured messages on error: {captured_messages}"
+                    )
+                    raise
 
             # Log the complete response only after streaming is done
             current_app.logger.debug(
-                f"LLM response completed for conversation {conversation_id}: {full_response}"
+                f"LLM response completed for conversation {conversation_id}:"
+                f" {full_response}"
             )
 
             # Log tool usage information using correct Pydantic AI message structure
@@ -166,12 +197,22 @@ class LLMService:
                                 hasattr(part, "part_kind")
                                 and part.part_kind == "tool-call"
                             ):
-                                tool_calls.append(part.tool_name)
+                                tool_info = {
+                                    "tool_name": part.tool_name,
+                                    "tool_args": getattr(part, "args", {}),
+                                }
+                                tool_calls.append(tool_info)
 
             if tool_calls:
-                current_app.logger.info(
-                    f"🔧 TOOLS USED: {', '.join(set(tool_calls))}"  # Use set to avoid duplicates
-                )
+                # Log each tool call with its parameters
+                for tool_call in tool_calls:
+                    current_app.logger.info(
+                        f"🔧 TOOL CALLED: {tool_call['tool_name']} with args:"
+                        f" {tool_call['tool_args']}"
+                    )
+                # Also log summary of unique tools used
+                unique_tools = set(tc["tool_name"] for tc in tool_calls)
+                current_app.logger.info(f"🔧 TOOLS USED: {', '.join(unique_tools)}")
             else:
                 current_app.logger.info("🚫 NO TOOLS USED in this response")
 
