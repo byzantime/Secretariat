@@ -28,3 +28,6 @@ class Config:
     OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL")
 
     BROWSER_USE_MODEL = os.environ.get("BROWSER_USE_MODEL", "")
+
+    # Scheduling Configuration
+    TIMEZONE = os.environ.get("TIMEZONE", "UTC")

@@ -4,7 +4,6 @@ import asyncio
 import traceback
 from collections import defaultdict
 from typing import Optional
-from uuid import UUID
 
 from quart import current_app
 
@@ -45,17 +44,13 @@ class EventHandler:
     async def emit_to_services(
         self,
         event: str,
-        identifier: UUID,
         data: Optional[dict] = None,
         org: Optional[str] = None,
     ):
         """Emit event to inter-service subscribers.
 
-        `identifier` can be a connection_id or conversation_id.
-
         Args:
             event: Event name to emit
-            identifier: Connection or conversation ID
             data: Optional event data
             org: Organization name for the event (used for filtering subscribers)
         """
@@ -68,13 +63,12 @@ class EventHandler:
             # 2. Event has org and subscriber is listening for that org
             if subscriber_org is None or subscriber_org == org:
                 try:
-                    tasks.append(asyncio.create_task(callback(identifier, data)))
+                    tasks.append(asyncio.create_task(callback(data)))
                 except Exception as e:
                     # Get full traceback
                     tb = traceback.format_exc()
                     error_msg = (
                         f"Error in event {event} callback: {str(e)}\n"
-                        f"Connection ID: {identifier}\n"
                         f"Data: {data}\n"
                         f"Traceback:\n{tb}"
                     )

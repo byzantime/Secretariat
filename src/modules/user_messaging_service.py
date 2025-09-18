@@ -1,11 +1,11 @@
 """User messaging service for handling SSE and future communication channels."""
 
+import secrets
 from abc import ABC
 from abc import abstractmethod
 from datetime import datetime
 from typing import Dict
 from typing import Optional
-from uuid import UUID
 
 from quart import current_app
 from quart import render_template
@@ -16,29 +16,27 @@ class ChannelFormatter(ABC):
 
     @abstractmethod
     async def format_message_start(
-        self, conversation_id: UUID, message_id: str, content: str
+        self, message_id: str, content: str
     ) -> Dict[str, str]:
         """Format initial message for this channel."""
         pass
 
     @abstractmethod
     async def format_message_update(
-        self, conversation_id: UUID, message_id: str, content: str
+        self, message_id: str, content: str
     ) -> Dict[str, str]:
         """Format message update for this channel."""
         pass
 
     @abstractmethod
     async def format_message_complete(
-        self, conversation_id: UUID, message_id: str, content: str
+        self, message_id: str, content: str
     ) -> Dict[str, str]:
         """Format message completion for this channel."""
         pass
 
     @abstractmethod
-    async def format_error(
-        self, conversation_id: UUID, error_message: str
-    ) -> Dict[str, str]:
+    async def format_error(self, error_message: str) -> Dict[str, str]:
         """Format error message for this channel."""
         pass
 
@@ -47,7 +45,7 @@ class SSEChannelFormatter(ChannelFormatter):
     """Formatter for Server-Sent Events channel."""
 
     async def format_message_start(
-        self, conversation_id: UUID, message_id: str, content: str
+        self, message_id: str, content: str
     ) -> Dict[str, str]:
         """Format initial message for SSE."""
         html_message = await render_template(
@@ -60,7 +58,7 @@ class SSEChannelFormatter(ChannelFormatter):
         return {"event_type": "streaming_text", "data": html_message}
 
     async def format_message_update(
-        self, conversation_id: UUID, message_id: str, content: str
+        self, message_id: str, content: str
     ) -> Dict[str, str]:
         """Format message update for SSE."""
         html_message = await render_template(
@@ -72,15 +70,13 @@ class SSEChannelFormatter(ChannelFormatter):
         return {"event_type": f"message-{message_id}-update", "data": html_message}
 
     async def format_message_complete(
-        self, conversation_id: UUID, message_id: str, content: str
+        self, message_id: str, content: str
     ) -> Dict[str, str]:
         """Format message completion for SSE."""
         # For SSE, completion is just a status update
         return {"event_type": "message_complete", "data": message_id}
 
-    async def format_error(
-        self, conversation_id: UUID, error_message: str
-    ) -> Dict[str, str]:
+    async def format_error(self, error_message: str) -> Dict[str, str]:
         """Format error message for SSE."""
         return {"event_type": "error", "data": error_message}
 
@@ -122,9 +118,7 @@ class UserMessagingService:
         # Tool events
         event_handler.on("llm.tool.called", self._handle_tool_called)
 
-    async def _handle_message_start(
-        self, conversation_id: UUID, data: Optional[Dict] = None
-    ):
+    async def _handle_message_start(self, data: Optional[Dict] = None):
         """Handle the start of a new message."""
         if not data:
             return
@@ -135,14 +129,10 @@ class UserMessagingService:
 
         if message_id and channel in self.channels:
             formatter = self.channels[channel]
-            formatted = await formatter.format_message_start(
-                conversation_id, message_id, content
-            )
+            formatted = await formatter.format_message_start(message_id, content)
             await self._deliver_message(channel, formatted)
 
-    async def _handle_message_chunk(
-        self, conversation_id: UUID, data: Optional[Dict] = None
-    ):
+    async def _handle_message_chunk(self, data: Optional[Dict] = None):
         """Handle a message chunk update."""
         if not data:
             return
@@ -153,14 +143,10 @@ class UserMessagingService:
 
         if message_id and channel in self.channels:
             formatter = self.channels[channel]
-            formatted = await formatter.format_message_update(
-                conversation_id, message_id, content
-            )
+            formatted = await formatter.format_message_update(message_id, content)
             await self._deliver_message(channel, formatted)
 
-    async def _handle_message_complete(
-        self, conversation_id: UUID, data: Optional[Dict] = None
-    ):
+    async def _handle_message_complete(self, data: Optional[Dict] = None):
         """Handle message completion."""
         if not data:
             return
@@ -171,12 +157,10 @@ class UserMessagingService:
 
         if message_id and channel in self.channels:
             formatter = self.channels[channel]
-            formatted = await formatter.format_message_complete(
-                conversation_id, message_id, content
-            )
+            formatted = await formatter.format_message_complete(message_id, content)
             await self._deliver_message(channel, formatted)
 
-    async def _handle_error(self, conversation_id: UUID, data: Optional[Dict] = None):
+    async def _handle_error(self, data: Optional[Dict] = None):
         """Handle LLM errors."""
         if not data:
             return
@@ -186,12 +170,10 @@ class UserMessagingService:
 
         if channel in self.channels:
             formatter = self.channels[channel]
-            formatted = await formatter.format_error(conversation_id, error_message)
+            formatted = await formatter.format_error(error_message)
             await self._deliver_message(channel, formatted)
 
-    async def _handle_tool_called(
-        self, conversation_id: UUID, data: Optional[Dict] = None
-    ):
+    async def _handle_tool_called(self, data: Optional[Dict] = None):
         """Handle tool usage notifications."""
         if not data:
             return
@@ -199,10 +181,7 @@ class UserMessagingService:
         # For now, just log tool usage
         tool_name = data.get("tool_name")
         tool_args = data.get("tool_args", {})
-        current_app.logger.info(
-            f"Tool called in conversation {conversation_id}: {tool_name} with args"
-            f" {tool_args}"
-        )
+        current_app.logger.info(f"Tool called: {tool_name} with args {tool_args}")
 
     async def _deliver_message(self, channel: str, formatted_message: Dict[str, str]):
         """Deliver a formatted message through the specified channel."""
@@ -219,7 +198,7 @@ class UserMessagingService:
             # Future channels can be implemented here
             current_app.logger.warning(f"Channel {channel} not yet implemented")
 
-    async def send_user_message(self, conversation_id: UUID, message: str):
+    async def send_user_message(self, message: str):
         """Send a user message through the default channel."""
         channel = self.default_channel
 
@@ -228,15 +207,11 @@ class UserMessagingService:
             return
 
         # Generate message ID and format user message
-        import secrets
-
         message_id = secrets.token_urlsafe(8)
 
         formatter = self.channels[channel]
         if hasattr(formatter, "format_user_message"):
-            formatted = await formatter.format_user_message(
-                conversation_id, message_id, message
-            )
+            formatted = await formatter.format_user_message(message_id, message)
             await self._deliver_message(channel, formatted)
         else:
             # Default user message formatting

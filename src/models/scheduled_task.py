@@ -6,6 +6,7 @@ from typing import Dict
 from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import Boolean
 from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Integer
@@ -37,6 +38,11 @@ class ScheduledTask(Base):
     )  # pending, running, completed, failed
     failure_count = Column(Integer, nullable=False, default=0)
     error_message = Column(Text, nullable=True)
+
+    # Task configuration
+    interactive = Column(
+        Boolean, nullable=False, server_default="true"
+    )  # Whether task supports user interaction/responses
 
     # Timestamps
     created_at = Column(DateTime, default=func.now(), nullable=False)
@@ -109,6 +115,7 @@ class ScheduledTask(Base):
         conversation_id: UUID,
         agent_instructions: str,
         schedule_config: Dict[str, Any],
+        interactive: bool = True,
     ) -> "ScheduledTask":
         """Create a new scheduled task."""
         task = ScheduledTask(
@@ -117,6 +124,7 @@ class ScheduledTask(Base):
             conversation_id=conversation_id,
             agent_instructions=agent_instructions,
             schedule_config=schedule_config,
+            interactive=interactive,
         )
         session.add(task)
         await session.commit()

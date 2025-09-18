@@ -12,6 +12,7 @@ async def setup_automation(
     ctx: RunContext[Dict[str, Any]],
     agent_instructions: str,
     schedule_config: Dict[str, Any],
+    interactive: bool = True,
 ) -> Dict[str, Any]:
     """Use this tool to schedule the AI agent to perform tasks automatically at specific times or on a recurring schedule.
 
@@ -58,6 +59,12 @@ async def setup_automation(
             - Weekdays at 5 PM: {"type": "cron", "when": "0 17 * * 1-5"}
             - One-time tomorrow 2 PM: {"type": "once", "when": "2024-01-16T14:00:00"}
 
+        interactive: Whether this task should support user interaction/responses (default: True).
+            - True: Use for tasks where the user might want to respond (default)
+              Examples: "Text me daily motivational quotes", "Send me weekly reminders via WhatsApp"
+            - False: Use for silent background tasks
+              Examples: "Backup database weekly", "Generate and email reports"
+
     Returns:
         Dictionary with task details including job_id, status, and next run time
 
@@ -89,6 +96,7 @@ async def setup_automation(
         conversation_id=conversation_id,
         agent_instructions=agent_instructions,
         schedule_config=schedule_config,
+        interactive=interactive,
         max_retries=3,
     )
 

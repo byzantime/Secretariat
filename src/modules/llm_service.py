@@ -78,7 +78,7 @@ class LLMService:
             ),
         )
 
-        @self.agent.instructions  # Changed from @self.agent.system_prompt
+        @self.agent.instructions
         def add_time_context(ctx: RunContext[dict]) -> str:
             """Add current time context with explicit guidance for tool usage."""
             current_time = datetime.now(ZoneInfo("Pacific/Auckland")).strftime(
@@ -120,15 +120,9 @@ class LLMService:
             f" {len(message_history)} messages"
         )
 
-        # Get event handler for emitting events
-        event_handler = current_app.extensions["event_handler"]
-
         try:
             # Set up context for tools
             deps = {"conversation_id": conversation_id, "conversation": conversation}
-
-            message_id = None
-            full_response = ""
 
             # Log the start of LLM processing
             current_app.logger.info(
@@ -141,49 +135,84 @@ class LLMService:
             )
             current_app.logger.info(f"Current system time: {current_time}")
 
-            # Emit message start event
-            message_id = secrets.token_urlsafe(8)
-            await event_handler.emit_to_services(
-                "llm.message.start",
-                conversation_id,
-                {"message_id": message_id, "content": ""},
+            # Use the new execute_agent_stream method for interactive processing
+            await self.execute_agent_stream(
+                agent_instructions=user_message,
+                message_history=message_history,
+                deps=deps,
+                emit_events=True,  # Interactive processing should emit events
+                store_result=True,  # Interactive sessions should store results
             )
+
+        except Exception as e:
+            # Handle errors for interactive processing
+            event_handler = current_app.extensions["event_handler"]
+            await event_handler.emit_to_services("llm.error", {"error": str(e)})
+            await self._handle_general_error(conversation, e)
+        finally:
+            current_app.logger.info(
+                f"LLM streaming completed for conversation {conversation_id}"
+            )
+
+    async def execute_agent_stream(
+        self,
+        agent_instructions: str,
+        message_history: list,
+        deps: dict,
+        emit_events: bool = True,
+        store_result: bool = True,
+    ):
+        """Core method for executing agent with streaming and optional event emission.
+
+        Args:
+            agent_instructions: Instructions for the agent
+            message_history: Pydantic-compatible message history
+            deps: Dependencies for the agent (conversation context)
+            conversation: Conversation object
+            emit_events: Whether to emit events for interactive processing
+            store_result: Whether to store the run result in conversation
+
+        Returns:
+            The agent run result
+        """
+        # Get event handler for emitting events (only if needed)
+        event_handler = current_app.extensions["event_handler"]
+
+        try:
+            # Generate message ID for tracking if emitting events
+            message_id = None
+            full_response = ""
+
+            if emit_events:
+                message_id = secrets.token_urlsafe(8)
+                # Emit message start event
+                await event_handler.emit_to_services(
+                    "llm.message.start",
+                    {"message_id": message_id, "content": ""},
+                )
 
             # Use capture_run_messages to debug system prompts
             with capture_run_messages() as captured_messages:
                 try:
-                    # Use iter for streaming with complete tool execution
+                    # Use streaming for interactive tasks
                     async with self.agent.run_stream(
-                        user_prompt=user_message,
-                        message_history=message_history[:-1],
+                        user_prompt=agent_instructions,
+                        message_history=message_history[:-1] if message_history else [],
                         deps=deps,
                     ) as result:
                         async for text in result.stream_text():
                             # Accumulate the full response
                             full_response = text
 
-                            # Emit message chunk events for streaming updates
-                            await event_handler.emit_to_services(
-                                "llm.message.chunk",
-                                conversation_id,
-                                {
-                                    "message_id": message_id,
-                                    "content": text,
-                                },
-                            )
-
-                        # Log the complete response only after streaming is done
-                        current_app.logger.debug(
-                            "LLM response completed for conversation"
-                            f" {conversation_id}: {full_response}"
-                        )
-
-                        # Log captured messages for debugging
-                        if captured_messages:
-                            current_app.logger.info(
-                                f"Captured messages: {captured_messages}"
-                            )
-
+                            # Emit message chunk events for streaming updates (if enabled)
+                            if emit_events:
+                                await event_handler.emit_to_services(
+                                    "llm.message.chunk",
+                                    {
+                                        "message_id": message_id,
+                                        "content": text,
+                                    },
+                                )
                 except Exception as e:
                     current_app.logger.error(f"Error during agent run: {e}")
                     current_app.logger.error(
@@ -191,20 +220,14 @@ class LLMService:
                     )
                     raise
 
-            # Emit message complete event
-            await event_handler.emit_to_services(
-                "llm.message.complete",
-                conversation_id,
-                {"message_id": message_id, "content": full_response},
-            )
+            if emit_events:
+                # Emit message complete event
+                await event_handler.emit_to_services(
+                    "llm.message.complete",
+                    {"message_id": message_id, "content": full_response},
+                )
 
-            # Log the complete response only after streaming is done
-            current_app.logger.debug(
-                f"LLM response completed for conversation {conversation_id}:"
-                f" {full_response}"
-            )
-
-            # Log tool usage information using correct Pydantic AI message structure
+            # Log tool usage information
             tool_calls = []
             if hasattr(result, "new_messages"):
                 for msg in result.new_messages():
@@ -222,42 +245,40 @@ class LLMService:
                                 tool_calls.append(tool_info)
 
             if tool_calls:
-                # Emit tool called events
-                for tool_call in tool_calls:
-                    await event_handler.emit_to_services(
-                        "llm.tool.called",
-                        conversation_id,
-                        {
-                            "tool_name": tool_call["tool_name"],
-                            "tool_args": tool_call["tool_args"],
-                        },
-                    )
-                    current_app.logger.info(
-                        f"🔧 TOOL CALLED: {tool_call['tool_name']} with args:"
-                        f" {tool_call['tool_args']}"
-                    )
-                # Also log summary of unique tools used
+                if emit_events:
+                    # Emit tool called events
+                    for tool_call in tool_calls:
+                        await event_handler.emit_to_services(
+                            "llm.tool.called",
+                            {
+                                "tool_name": tool_call["tool_name"],
+                                "tool_args": tool_call["tool_args"],
+                            },
+                        )
+                        current_app.logger.info(f"🔧 TOOL CALLED: {tool_call}")
+                # Log summary of unique tools used (always)
                 unique_tools = set(tc["tool_name"] for tc in tool_calls)
                 current_app.logger.info(f"🔧 TOOLS USED: {', '.join(unique_tools)}")
-            else:
-                current_app.logger.info("🚫 NO TOOLS USED in this response")
 
-            # Update token counts
-            await self._update_token_counts(conversation, result)
+            conversation = deps.get("conversation")
+            # Always update token counts
+            if conversation is not None:
+                await self._update_token_counts(conversation, result)
 
-            # Store the run result for future message history
-            conversation.store_run_result(result)
+            # Store the run result for future message history (if enabled)
+            if conversation is not None and store_result:
+                conversation.store_run_result(result)
+
+            return result
 
         except Exception as e:
-            # Emit error event
-            await event_handler.emit_to_services(
-                "llm.error", conversation_id, {"error": str(e)}
+            if emit_events:
+                # Emit error event for interactive tasks
+                await event_handler.emit_to_services("llm.error", {"error": str(e)})
+            current_app.logger.error(
+                f"Error in agent execution: {str(e)}", exc_info=True
             )
-            await self._handle_general_error(conversation, e)
-        finally:
-            current_app.logger.info(
-                f"LLM streaming completed for conversation {conversation_id}"
-            )
+            raise
 
     async def _handle_general_error(self, conversation, error):
         """Handle general errors during LLM processing."""

@@ -180,7 +180,7 @@ async def _broadcast_user_message(message: str):
     # Use the global conversation for user messages
     global _current_conversation
     if _current_conversation:
-        await user_messaging.send_user_message(_current_conversation.id, message)
+        await user_messaging.send_user_message(message)
 
 
 async def _broadcast_event(event_type: str, data: str):

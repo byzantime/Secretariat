@@ -56,10 +56,18 @@ class SchedulingService:
         app.logger.info("SchedulingService initialized")
 
     async def start_scheduler(self):
-        """Start the APScheduler."""
+        """Start the APScheduler and restore pending jobs."""
         if self.scheduler and not self.scheduler.running:
-            self.scheduler.start()
-            current_app.logger.info("APScheduler started")
+            try:
+                self.scheduler.start()
+                current_app.logger.info("APScheduler started")
+
+                # Restore pending jobs from database
+                await self._restore_pending_jobs()
+
+            except Exception as e:
+                current_app.logger.error(f"Failed to start APScheduler: {e}")
+                raise
 
     async def shutdown_scheduler(self):
         """Shutdown the APScheduler."""
@@ -67,12 +75,111 @@ class SchedulingService:
             self.scheduler.shutdown(wait=True)
             current_app.logger.info("APScheduler shutdown")
 
+    async def _restore_pending_jobs(self):
+        """Restore pending jobs from database to scheduler."""
+        try:
+            from sqlalchemy.future import select
+
+            from src.models.scheduled_task import ScheduledTask
+
+            async with self.db.session_factory() as session:
+                # Get all pending tasks
+                result = await session.execute(
+                    select(ScheduledTask).where(ScheduledTask.status == "pending")  # type: ignore
+                )
+                pending_tasks = result.scalars().all()
+
+                current_app.logger.info(
+                    f"Found {len(pending_tasks)} pending tasks to restore"
+                )
+
+                for task in pending_tasks:
+                    try:
+                        # Check if job already exists in scheduler
+                        if self.scheduler:
+                            existing_job = self.scheduler.get_job(task.job_id)
+                            if existing_job:
+                                current_app.logger.debug(
+                                    f"Job {task.job_id} already exists in scheduler"
+                                )
+                                continue
+
+                        # Recreate the trigger based on schedule config
+                        if task.schedule_config["type"] == "once":
+                            from datetime import datetime
+
+                            run_date = datetime.fromisoformat(
+                                task.schedule_config["when"]
+                            )
+                            # Skip if the scheduled time has already passed
+                            if run_date < datetime.now():
+                                current_app.logger.warning(
+                                    f"Task {task.id} scheduled for past time"
+                                    f" {run_date}, marking as missed"
+                                )
+                                await task.update_status(
+                                    session,
+                                    "failed",
+                                    error_message=(
+                                        "Scheduled time passed before execution"
+                                    ),
+                                )
+                                continue
+
+                            trigger = DateTrigger(run_date=run_date)
+                        elif task.schedule_config["type"] == "cron":
+                            trigger = CronTrigger.from_crontab(
+                                task.schedule_config["when"]
+                            )
+                        else:
+                            current_app.logger.error(
+                                f"Unknown schedule type for task {task.id}:"
+                                f" {task.schedule_config['type']}"
+                            )
+                            continue
+
+                        # Recreate the job in the scheduler
+                        if self.scheduler:
+                            self.scheduler.add_job(
+                                func=SchedulingService._execute_scheduled_agent,
+                                trigger=trigger,
+                                id=task.job_id,
+                                args=[
+                                    task.id,
+                                    task.conversation_id,
+                                    task.agent_instructions,
+                                    3,  # max_retries
+                                    task.interactive,
+                                ],
+                                name=(
+                                    "Agent execution:"
+                                    f" {task.agent_instructions[:50]}..."
+                                ),
+                                replace_existing=True,
+                            )
+
+                        current_app.logger.info(
+                            f"Restored job {task.job_id} for task {task.id}"
+                        )
+
+                    except Exception as e:
+                        current_app.logger.error(
+                            f"Failed to restore job {task.job_id}: {e}"
+                        )
+                        # Don't fail the entire restoration process for one bad job
+                        continue
+
+        except Exception as e:
+            current_app.logger.error(f"Failed to restore pending jobs: {e}")
+            # Don't raise - we want the scheduler to start even if restoration fails
+
     async def schedule_agent_execution(
         self,
         task_id: UUID,
         conversation_id: UUID,
         agent_instructions: str,
         schedule_config: Dict[str, Any],
+        interactive: bool = True,
         max_retries: int = 3,
     ) -> str:
         """Schedule an agent execution task.
@@ -84,6 +191,7 @@ class SchedulingService:
             schedule_config: Scheduling configuration
                 - type: "once" or "cron"
                 - when: datetime string or cron expression
+            interactive: Whether this task should support user interaction/responses (default: True)
             max_retries: Maximum retry attempts
 
         Returns:
@@ -111,6 +219,7 @@ class SchedulingService:
                 conversation_id,
                 agent_instructions,
                 max_retries,
+                interactive,
             ],
             name=f"Agent execution: {agent_instructions[:50]}...",
             replace_existing=True,
@@ -125,6 +234,7 @@ class SchedulingService:
                 conversation_id=conversation_id,
                 agent_instructions=agent_instructions,
                 schedule_config=schedule_config,
+                interactive=interactive,
             )
 
         current_app.logger.info(f"Scheduled agent task {task_id} with job ID {job_id}")
@@ -136,6 +246,7 @@ class SchedulingService:
         conversation_id: UUID,
         agent_instructions: str,
         max_retries: int,
+        interactive: bool,
     ):
         """Execute a scheduled agent task."""
         current_app.logger.info(f"Executing scheduled agent task {task_id}")
@@ -169,17 +280,27 @@ class SchedulingService:
                 last_n=llm_service.max_history
             )
 
-            # Execute the agent
+            # Execute the agent based on interactive mode
             deps = {"conversation_id": conversation_id, "conversation": conversation}
 
-            result = await temp_agent.run(
-                user_prompt=agent_instructions,
-                message_history=message_history,
-                deps=deps,
-            )
-
-            # Store the result in conversation
-            conversation.store_run_result(result)
+            if interactive:
+                # Interactive mode: use streaming with full event emission
+                await llm_service.execute_agent_stream(
+                    agent_instructions=agent_instructions,
+                    message_history=message_history,
+                    deps=deps,
+                    emit_events=True,  # Interactive mode should emit events
+                    store_result=True,  # Interactive sessions should store results
+                )
+            else:
+                # Non-interactive mode: use batch execution
+                result = await temp_agent.run(
+                    user_prompt=agent_instructions,
+                    message_history=message_history,
+                    deps=deps,
+                )
+                # Store the result in conversation
+                conversation.store_run_result(result)
 
             # Update task status to completed
             async with db.session_factory() as session:
@@ -205,7 +326,8 @@ class SchedulingService:
             async with db.session_factory() as session:
                 task = await ScheduledTask.get_by_id(session, task_id)
                 if task is not None:
-                    if task.failure_count >= max_retries:
+                    failure_count = task.failure_count or 0
+                    if failure_count >= max_retries:
                         await task.update_status(
                             session, "failed", error_message=str(e)
                         )
@@ -230,27 +352,3 @@ class SchedulingService:
 
             # Re-raise to let APScheduler handle retry logic
             raise
-
-    async def _job_executed(self, event):
-        """Handle successful job execution."""
-        current_app.logger.debug(f"Job {event.job_id} executed successfully")
-
-    async def _job_error(self, event):
-        """Handle job execution errors."""
-        current_app.logger.error(f"Job {event.job_id} failed: {event.exception}")
-
-    async def _job_added(self, event):
-        """Handle job added event."""
-        current_app.logger.info(f"Job {event.job_id} added to scheduler")
-
-    async def _job_removed(self, event):
-        """Handle job removed event."""
-        current_app.logger.info(f"Job {event.job_id} removed from scheduler")
-
-    async def _job_missed(self, event):
-        """Handle job missed event."""
-        current_app.logger.warning(f"Job {event.job_id} missed its scheduled run time")
-
-    async def get_session(self):
-        """Get database session context manager."""
-        return self.db.session_factory()
