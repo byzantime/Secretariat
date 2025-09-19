@@ -6,6 +6,8 @@ from datetime import timedelta
 
 import pytest
 
+from src.models.schedule_config import CronSchedule
+from src.models.schedule_config import OnceSchedule
 from src.models.scheduled_task import ScheduledTask
 from src.tools.scheduling_tools import setup_automation
 
@@ -20,10 +22,10 @@ async def test_interactive_scheduling(app, conversation_manager, mock_conversati
     result = await setup_automation(
         ctx=ctx,
         agent_instructions="Send me a motivational quote",
-        schedule_config={
-            "type": "once",
-            "when": (datetime.now() + timedelta(minutes=1)).isoformat(),
-        },
+        schedule_config=OnceSchedule(
+            type="once",
+            when=(datetime.now() + timedelta(minutes=1)).isoformat(),
+        ),
         interactive=True,
     )
 
@@ -51,10 +53,10 @@ async def test_non_interactive_scheduling(
     result = await setup_automation(
         ctx=ctx,
         agent_instructions="Backup database",
-        schedule_config={
-            "type": "cron",
-            "when": "0 2 * * *",  # Daily at 2 AM
-        },
+        schedule_config=CronSchedule(
+            type="cron",
+            when="0 2 * * *",  # Daily at 2 AM
+        ),
     )
 
     # Verify task was created with interactive=False (default)
@@ -84,7 +86,10 @@ async def test_scheduling_service_parameters(
         task_id=task_id,
         conversation_id=conversation_id,
         agent_instructions="Test interactive task",
-        schedule_config={"type": "once", "when": datetime.now().isoformat()},
+        schedule_config={
+            "type": "once",
+            "when": datetime.now().isoformat(),
+        },  # Keep as dict for service compatibility
         interactive=True,
     )
 

@@ -9,6 +9,7 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from quart import current_app
 
 from src.models.scheduled_task import ScheduledTask
@@ -106,8 +107,6 @@ class SchedulingService:
 
                         # Recreate the trigger based on schedule config
                         if task.schedule_config["type"] == "once":
-                            from datetime import datetime
-
                             run_date = datetime.fromisoformat(
                                 task.schedule_config["when"]
                             )
@@ -128,8 +127,27 @@ class SchedulingService:
 
                             trigger = DateTrigger(run_date=run_date)
                         elif task.schedule_config["type"] == "cron":
-                            trigger = CronTrigger.from_crontab(
-                                task.schedule_config["when"]
+                            trigger = CronTrigger(
+                                year=task.schedule_config.get("year"),
+                                month=task.schedule_config.get("month"),
+                                day=task.schedule_config.get("day"),
+                                week=task.schedule_config.get("week"),
+                                day_of_week=task.schedule_config.get("day_of_week"),
+                                hour=task.schedule_config.get("hour"),
+                                minute=task.schedule_config.get("minute"),
+                                second=task.schedule_config.get("second"),
+                                start_date=task.schedule_config.get("start_date"),
+                                end_date=task.schedule_config.get("end_date"),
+                            )
+                        elif task.schedule_config["type"] == "interval":
+                            trigger = IntervalTrigger(
+                                weeks=task.schedule_config.get("weeks", 0),
+                                days=task.schedule_config.get("days", 0),
+                                hours=task.schedule_config.get("hours", 0),
+                                minutes=task.schedule_config.get("minutes", 0),
+                                seconds=task.schedule_config.get("seconds", 0),
+                                start_date=task.schedule_config.get("start_date"),
+                                end_date=task.schedule_config.get("end_date"),
                             )
                         else:
                             current_app.logger.error(
@@ -189,8 +207,10 @@ class SchedulingService:
             conversation_id: Conversation context
             agent_instructions: Instructions for the agent
             schedule_config: Scheduling configuration
-                - type: "once" or "cron"
-                - when: datetime string or cron expression
+                - type: "once", "cron", or "interval"
+                - For "once": when: datetime string
+                - For "cron": year/month/day/week/day_of_week/hour/minute/second/start_date/end_date parameters
+                - For "interval": weeks/days/hours/minutes/seconds/start_date/end_date parameters
             interactive: Whether this task should support user interaction/responses (default: True)
             max_retries: Maximum retry attempts
 
@@ -203,7 +223,28 @@ class SchedulingService:
                 run_date=datetime.fromisoformat(schedule_config["when"])
             )
         elif schedule_config["type"] == "cron":
-            trigger = CronTrigger.from_crontab(schedule_config["when"])
+            trigger = CronTrigger(
+                year=schedule_config.get("year"),
+                month=schedule_config.get("month"),
+                day=schedule_config.get("day"),
+                week=schedule_config.get("week"),
+                day_of_week=schedule_config.get("day_of_week"),
+                hour=schedule_config.get("hour"),
+                minute=schedule_config.get("minute"),
+                second=schedule_config.get("second"),
+                start_date=schedule_config.get("start_date"),
+                end_date=schedule_config.get("end_date"),
+            )
+        elif schedule_config["type"] == "interval":
+            trigger = IntervalTrigger(
+                weeks=schedule_config.get("weeks") or 0,
+                days=schedule_config.get("days") or 0,
+                hours=schedule_config.get("hours") or 0,
+                minutes=schedule_config.get("minutes") or 0,
+                seconds=schedule_config.get("seconds") or 0,
+                start_date=schedule_config.get("start_date"),
+                end_date=schedule_config.get("end_date"),
+            )
         else:
             raise ValueError(f"Unsupported schedule type: {schedule_config['type']}")
 

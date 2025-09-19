@@ -32,7 +32,7 @@ class ScheduledTask(Base):
     agent_instructions = Column(Text, nullable=False)
     schedule_config = Column(
         JSONB, nullable=False
-    )  # {type: "once"|"cron", when: "..."}
+    )  # {type: "once"|"cron"|"interval", when: "..."}
     status = Column(
         String(50), nullable=False, default="pending"
     )  # pending, running, completed, failed
@@ -47,7 +47,6 @@ class ScheduledTask(Base):
     # Timestamps
     created_at = Column(DateTime, default=func.now(), nullable=False)
     last_run = Column(DateTime, nullable=True)
-    next_run = Column(DateTime, nullable=True)
     updated_at = Column(
         DateTime, default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -90,7 +89,6 @@ class ScheduledTask(Base):
         )
         return result.scalars().all()
 
-    @staticmethod
     @staticmethod
     async def get_pending_tasks(session: AsyncSession):
         """Get all pending tasks."""
@@ -137,7 +135,6 @@ class ScheduledTask(Base):
         status: str,
         error_message: Optional[str] = None,
         last_run: Optional[datetime] = None,
-        next_run: Optional[datetime] = None,
     ):
         """Update task status and related fields."""
         self.status = status
@@ -145,8 +142,6 @@ class ScheduledTask(Base):
             self.error_message = error_message
         if last_run is not None:
             self.last_run = last_run
-        if next_run is not None:
-            self.next_run = next_run
 
         if status == "failed":
             self.failure_count += 1
