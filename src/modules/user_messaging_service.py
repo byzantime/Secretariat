@@ -59,10 +59,9 @@ class CommunicationChannel(ABC):
         current_app.logger.info(f"Tool called: {tool_name} with args {tool_args}")
         return True
 
-    @abstractmethod
     async def update_status(self, status_message: Optional[str] = None) -> bool:
         """Update status display. Return True if successful, False if not supported."""
-        pass
+        return False
 
 
 class WebUIChannel(CommunicationChannel):
@@ -299,30 +298,6 @@ class TelegramChannel(CommunicationChannel):
         """Check if the bot is initialised and ready."""
         return self.bot is not None and self.application is not None
 
-    async def send_message_start(self, message_id: str, content: str) -> bool:
-        """Send initial message via Telegram to all connected users."""
-        if not await self.is_connected():
-            return False
-
-        success = True
-        for chat_id in self._user_conversations.keys():
-            try:
-                await self.bot.send_message(
-                    chat_id=chat_id,
-                    text="🤔 Thinking...",
-                    parse_mode="Markdown",
-                )
-            except Exception as e:
-                current_app.logger.error(
-                    f"Failed to send Telegram message to {chat_id}: {e}"
-                )
-                success = False
-        return success
-
-    async def send_message_update(self, message_id: str, content: str) -> bool:
-        """Send message update via Telegram. Not typically supported, so we skip."""
-        return True
-
     async def send_message_complete(self, message_id: str, content: str) -> bool:
         """Send message completion via Telegram."""
         if not await self.is_connected():
@@ -374,27 +349,6 @@ class TelegramChannel(CommunicationChannel):
                 current_app.logger.error(
                     f"Failed to send tool notification to {chat_id}: {e}"
                 )
-                success = False
-        return success
-
-    async def update_status(self, status_message: Optional[str] = None) -> bool:
-        """Update status display for Telegram users."""
-        if not await self.is_connected():
-            return False
-
-        if not status_message:
-            status_message = "Ready"
-
-        success = True
-        for chat_id in self._user_conversations.keys():
-            try:
-                await self.bot.send_message(
-                    chat_id=chat_id,
-                    text=f"📊 Status: {status_message}",
-                    parse_mode="Markdown",
-                )
-            except Exception as e:
-                current_app.logger.error(f"Failed to send status to {chat_id}: {e}")
                 success = False
         return success
 
