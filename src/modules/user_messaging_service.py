@@ -235,12 +235,35 @@ class TelegramChannel(CommunicationChannel):
         self.bot: Optional[Bot] = None
         self.application: Optional[Application] = None
         self._user_conversations: Dict[int, str] = {}
+        self.allowed_users: set = set()
 
     def init_app(self, app) -> bool:
         """Initialise the Telegram channel with the Flask/Quart app."""
         # Get configuration
         self.bot_token = app.config.get("TELEGRAM_BOT_TOKEN")
         self.webhook_url = app.config.get("TELEGRAM_WEBHOOK_URL")
+
+        # Parse allowed users
+        allowed_users_str = app.config.get("TELEGRAM_ALLOWED_USERS", "")
+        if allowed_users_str:
+            try:
+                # Parse comma-separated list of user IDs
+                self.allowed_users = {
+                    int(user_id.strip())
+                    for user_id in allowed_users_str.split(",")
+                    if user_id.strip().isdigit()
+                }
+                app.logger.info(
+                    f"Telegram access restricted to {len(self.allowed_users)} users"
+                )
+            except ValueError as e:
+                app.logger.error(f"Invalid TELEGRAM_ALLOWED_USERS format: {e}")
+                self.allowed_users = set()
+        else:
+            app.logger.warning(
+                "TELEGRAM_ALLOWED_USERS not configured - bot will reject all messages"
+            )
+            self.allowed_users = set()
 
         if not TELEGRAM_AVAILABLE:
             app.logger.warning(
@@ -352,6 +375,11 @@ class TelegramChannel(CommunicationChannel):
                 success = False
         return success
 
+    def is_user_authorized(self, user_id: int) -> bool:
+        """Check if a user is authorized to use the bot."""
+        # Only allow users explicitly listed in allowed_users
+        return user_id in self.allowed_users
+
     def register_user(self, chat_id: int, conversation_id: Optional[str] = None):
         """Register a Telegram user for receiving messages."""
         self._user_conversations[chat_id] = conversation_id
@@ -364,6 +392,14 @@ class TelegramChannel(CommunicationChannel):
 
     async def process_incoming_message(self, chat_id: int, text: str):
         """Process incoming message from Telegram user."""
+        # Check if user is authorized
+        if not self.is_user_authorized(chat_id):
+            current_app.logger.warning(
+                f"Unauthorized Telegram user {chat_id} attempted to send message:"
+                f" {text}"
+            )
+            return
+
         # Register user if not already registered
         if chat_id not in self._user_conversations:
             self.register_user(chat_id)

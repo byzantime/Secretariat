@@ -56,6 +56,7 @@ async def _process_telegram_update(telegram_channel, update: "Update"):
     # Handle text messages
     if update.message and update.message.text:
         chat_id = update.message.chat.id
+        user_id = update.message.from_user.id if update.message.from_user else chat_id
         text = update.message.text
         user_name = (
             update.message.from_user.first_name
@@ -64,8 +65,29 @@ async def _process_telegram_update(telegram_channel, update: "Update"):
         )
 
         current_app.logger.info(
-            f"Received message from {user_name} ({chat_id}): {text}"
+            f"Received message from {user_name} ({user_id}): {text}"
         )
+
+        # Check authorization at webhook level (defense in depth)
+        if not telegram_channel.is_user_authorized(user_id):
+            current_app.logger.warning(
+                f"Unauthorized user {user_id} blocked at webhook level"
+            )
+            # Send rejection message directly via bot if possible
+            if telegram_channel.bot:
+                try:
+                    await telegram_channel.bot.send_message(
+                        chat_id=chat_id,
+                        text=(
+                            "You are not authorised.\n\nThis is *Secretariat* - an AI "
+                            "personal assistant.\nCreate your own: "
+                            "https://github.com/byzantime/Secretariat"
+                        ),
+                        parse_mode="Markdown",
+                    )
+                except Exception as e:
+                    current_app.logger.error(f"Failed to send rejection message: {e}")
+            return
 
         # Process the message through the telegram channel
         await telegram_channel.process_incoming_message(chat_id, text)
