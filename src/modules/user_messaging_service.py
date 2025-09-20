@@ -382,6 +382,31 @@ class TelegramChannel(CommunicationChannel):
                 },
             )
 
+    async def update_status(self, status_message: Optional[str] = None) -> bool:
+        """Update status via Telegram chat action indicator."""
+        if not await self.is_connected():
+            return False
+
+        # Only send typing indicators for certain status messages
+        if status_message.lower() not in ["thinking...", "generating..."]:
+            return False
+
+        action = "typing"
+        success = True
+
+        for chat_id in self._user_conversations.keys():
+            try:
+                await self.bot.send_chat_action(chat_id=chat_id, action=action)
+                current_app.logger.debug(
+                    f"Sent '{action}' action to Telegram user {chat_id}"
+                )
+            except Exception as e:
+                current_app.logger.error(
+                    f"Failed to send chat action to {chat_id}: {e}"
+                )
+                success = False
+        return success
+
     async def setup_webhook(self, webhook_url: str) -> bool:
         """Automatically set up the Telegram webhook."""
         if not await self.is_connected():
