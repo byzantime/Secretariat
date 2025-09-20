@@ -194,6 +194,7 @@ httpx==0.28.1
     #   openai
     #   pydantic-ai-slim
     #   pydantic-graph
+    #   python-telegram-bot
 httpx-sse==0.4.0
     # via
     #   cohere
@@ -1121,6 +1122,8 @@ python-dotenv==1.1.0
     #   pydantic-settings
 python-multipart==0.0.20
     # via mcp
+python-telegram-bot==22.4
+    # via -r requirements.in
 pywin32==311 ; sys_platform == 'win32'
     # via
     #   mcp
@@ -1213,6 +1216,8 @@ tenacity==9.1.2
     #   pydantic-ai-slim
 tokenizers==0.22.0 ; sys_platform != 'emscripten'
     # via cohere
+tornado==6.5.2
+    # via python-telegram-bot
 tqdm==4.67.1
     # via
     #   huggingface-hub

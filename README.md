@@ -33,6 +33,37 @@ Done! I've set up a reminder to take the rubbish out every 14 days starting next
 ./local_build.sh
 ```
 
+### Telegram Integration
+
+To enable Telegram integration during local development:
+
+1. **Create a Telegram bot**:
+   - Message [@BotFather](https://t.me/botfather) on Telegram
+   - Send `/newbot` and follow the instructions
+   - Save the bot token you receive
+
+2. **Install and start ngrok**:
+   ```bash
+   # Install ngrok (if not already installed)
+   # Visit https://ngrok.com/ to download
+
+   # Start ngrok tunnel to your local app
+   ngrok http 5000
+   ```
+
+3. **Set environment variables**:
+   ```bash
+   export TELEGRAM_BOT_TOKEN="your_bot_token_from_botfather"
+   export TELEGRAM_WEBHOOK_URL="https://your-ngrok-url.ngrok.io"
+   ```
+
+4. **Start the app**:
+   ```bash
+   python main.py
+   ```
+
+The webhook will be automatically configured when the app starts. You can now message your bot on Telegram and it will communicate with your local development server!
+
 ### Updating dependencies:
 
 ```bash

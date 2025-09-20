@@ -13,7 +13,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from quart import current_app
 
 from src.models.scheduled_task import ScheduledTask
-from src.routes import _broadcast_event
 
 
 class SchedulingService:
@@ -350,8 +349,10 @@ class SchedulingService:
                     await task.update_status(session, "completed")
 
             # Notify user of successful completion
-            await _broadcast_event(
-                "scheduled_task_completed", "Scheduled task completed successfully"
+            event_handler = current_app.extensions["event_handler"]
+            await event_handler.emit_to_services(
+                "status.update",
+                {"message": "Scheduled task completed successfully"},
             )
 
             current_app.logger.info(
@@ -377,10 +378,15 @@ class SchedulingService:
                             f" {max_retries} retries"
                         )
                         # Notify user of permanent failure
-                        await _broadcast_event(
-                            "scheduled_task_failed",
-                            "Scheduled task failed permanently after"
-                            f" {max_retries} retries: {str(e)}",
+                        event_handler = current_app.extensions["event_handler"]
+                        await event_handler.emit_to_services(
+                            "status.update",
+                            {
+                                "message": (
+                                    "Scheduled task failed permanently after"
+                                    f" {max_retries} retries: {str(e)}"
+                                )
+                            },
                         )
                     else:
                         await task.update_status(

@@ -13,3 +13,4 @@ quart-compress
 quart-flask-patch
 sqlalchemy[asyncio]
 sentry-sdk
+python-telegram-bot[webhooks]

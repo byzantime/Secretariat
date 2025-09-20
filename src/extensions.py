@@ -8,7 +8,7 @@ from src.modules.event_handler import EventHandler
 from src.modules.llm_service import LLMService
 from src.modules.logging_helper import LoggingHelper
 from src.modules.scheduling_service import SchedulingService
-from src.modules.user_messaging_service import UserMessagingService
+from src.modules.user_messaging_service import CommunicationService
 
 # Create instances without initializing
 compress = Compress()
@@ -18,7 +18,7 @@ event_handler = EventHandler()
 conversation_manager = ConversationManager()
 llm_service = LLMService()
 scheduling_service = SchedulingService()
-user_messaging_service = UserMessagingService()
+communication_service = CommunicationService()
 user_manager = UserManager()
 
 
@@ -34,4 +34,4 @@ def init_extensions(app):
     conversation_manager.init_app(app)  # Initialize before LLM service
     llm_service.init_app(app)
     scheduling_service.init_app(app)  # Initialize after database
-    user_messaging_service.init_app(app)  # Initialize after event handler
+    communication_service.init_app(app)  # Initialize after event handler

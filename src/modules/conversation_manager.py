@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from pydantic_ai.messages import ModelRequest
 from pydantic_ai.messages import UserPromptPart
+from quart import current_app
 from quart import render_template
 
 if TYPE_CHECKING:
@@ -81,18 +82,19 @@ class Conversation:
 
     async def _broadcast_todo_status(self):
         """Broadcast current todo status to status line."""
-        # Import here to avoid circular imports
-        from src.routes import _broadcast_event
+        event_handler = current_app.extensions["event_handler"]
 
         if not self.todos:
-            await _broadcast_event("status_update", "Ready")
+            await event_handler.emit_to_services("status.update", {"message": "Ready"})
             return
 
         # Render the todo status using the Jinja macro
         html_content = await render_template(
             "macros/todo_status.html", todos=self.todos
         )
-        await _broadcast_event("status_update", html_content.strip())
+        await event_handler.emit_to_services(
+            "status.update", {"message": html_content.strip()}
+        )
 
 
 class ConversationManager:
