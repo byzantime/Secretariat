@@ -51,10 +51,11 @@ To enable Telegram integration during local development:
    ngrok http 5000
    ```
 
-3. **Set environment variables**:
+3. **Add Telegram envvars to your .env file**:
    ```bash
-   export TELEGRAM_BOT_TOKEN="your_bot_token_from_botfather"
-   export TELEGRAM_WEBHOOK_URL="https://your-ngrok-url.ngrok.io"
+   TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
+   TELEGRAM_WEBHOOK_URL=https://your-ngrok-url.ngrok.io
+   TELEGRAM_ALLOWED_USERS=123456789,987654321  # Users you'd like to allow to use your bot.
    ```
 
 4. **Start the app**:
