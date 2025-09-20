@@ -232,6 +232,7 @@ class TelegramChannel(CommunicationChannel):
     def __init__(self):
         super().__init__("telegram", "messaging")
         self.bot_token: Optional[str] = None
+        self.webhook_url: Optional[str] = None
         self.bot: Optional[Bot] = None
         self.application: Optional[Application] = None
         self._user_conversations: Dict[int, str] = {}
@@ -240,7 +241,7 @@ class TelegramChannel(CommunicationChannel):
         """Initialise the Telegram channel with the Flask/Quart app."""
         # Get configuration
         self.bot_token = app.config.get("TELEGRAM_BOT_TOKEN")
-        webhook_url = app.config.get("TELEGRAM_WEBHOOK_URL")
+        self.webhook_url = app.config.get("TELEGRAM_WEBHOOK_URL")
 
         if not TELEGRAM_AVAILABLE:
             app.logger.warning(
@@ -255,53 +256,44 @@ class TelegramChannel(CommunicationChannel):
             return False
 
         # Schedule bot initialization for when the event loop is ready
-        # This is necessary because init_app runs before the event loop starts
-        app.before_serving(lambda: self._initialise_bot_async(app, webhook_url))
+        app.before_serving(self.initialize_bot)
         app.logger.info("Telegram channel setup scheduled for server start")
         return True
 
-    async def _initialise_bot_async(self, app, webhook_url: Optional[str]):
-        """Initialise the bot asynchronously when the event loop is ready."""
+    async def initialize_bot(self):
+        """Initialize the Telegram bot when the event loop is ready."""
         try:
-            # Initialise the bot
-            success = await self._initialise_bot(app)
-            if success:
-                app.logger.info("Telegram channel initialised successfully")
-
-                # Auto-setup webhook if webhook URL is configured
-                if webhook_url:
-                    app.logger.info("Setting up Telegram webhook automatically...")
-                    webhook_success = await self.setup_webhook(webhook_url)
-                    if webhook_success:
-                        app.logger.info("Telegram webhook setup completed successfully")
-                    else:
-                        app.logger.warning(
-                            "Telegram webhook setup failed - bot will still work"
-                            " but won't receive messages"
-                        )
-                else:
-                    app.logger.info(
-                        "No TELEGRAM_WEBHOOK_URL configured, skipping webhook setup"
-                    )
-            else:
-                app.logger.warning("Failed to initialise Telegram bot")
-
-        except Exception as e:
-            app.logger.error(f"Telegram bot async initialization failed: {e}")
-
-    async def _initialise_bot(self, app):
-        """Initialise the Telegram bot."""
-        try:
+            # Initialize the bot
             self.application = Application.builder().token(self.bot_token).build()
             self.bot = self.application.bot
 
-            # Initialise but don't start polling (we'll use webhooks)
+            # Initialize but don't start polling (we'll use webhooks)
             await self.application.initialize()
-            app.logger.info("Telegram bot initialised successfully")
-            return True
+            current_app.logger.info("Telegram bot initialized successfully")
+
+            # Auto-setup webhook if webhook URL is configured
+            if self.webhook_url:
+                current_app.logger.info("Setting up Telegram webhook automatically...")
+                webhook_success = await self.setup_webhook(self.webhook_url)
+                if webhook_success:
+                    current_app.logger.info(
+                        "Telegram webhook setup completed successfully"
+                    )
+                else:
+                    current_app.logger.warning(
+                        "Telegram webhook setup failed - bot will still work"
+                        " but won't receive messages"
+                    )
+            else:
+                current_app.logger.info(
+                    "No TELEGRAM_WEBHOOK_URL configured, skipping webhook setup"
+                )
+
         except Exception as e:
-            app.logger.error(f"Failed to initialise Telegram bot: {e}")
-            return False
+            current_app.logger.error(f"Telegram bot initialization failed: {e}")
+            # Reset bot state on failure
+            self.bot = None
+            self.application = None
 
     async def is_connected(self) -> bool:
         """Check if the bot is initialised and ready."""
