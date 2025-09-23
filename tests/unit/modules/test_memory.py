@@ -783,7 +783,6 @@ class TestMemoryCleanup:
                         "last_accessed": old_time,
                         "retrieval_count": 0,
                         "emotional_charge": 0.0,
-                        "distinctiveness": 0.0,  # Very low distinctiveness
                         "context_tags": [],
                     },
                 )
