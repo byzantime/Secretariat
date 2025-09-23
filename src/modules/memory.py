@@ -165,14 +165,11 @@ class MemoryService:
         Returns:
             Dictionary with 'semantic', 'temporal', 'contextual', and 'role' vectors
         """
-        emotional_charge = self._calculate_emotional_charge(content)
-
         return await asyncio.to_thread(
             self.vector_generator.generate_all,
             content=content,
             timestamp=timestamp,
             context_tags=context_tags,
-            emotional_charge=emotional_charge,
             role=role,
         )
 

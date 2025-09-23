@@ -149,13 +149,11 @@ class ContextualVectorGenerator:
     def generate(
         self,
         context_tags: Optional[List[str]] = None,
-        emotional_charge: float = 0.0,
     ) -> List[float]:
         """Generate contextual embedding from tags and metadata.
 
         Args:
             context_tags: List of context tags (tools used, etc.)
-            emotional_charge: Emotional intensity (0.0 to 1.0)
 
         Returns:
             List of floats representing contextual features
@@ -176,7 +174,6 @@ class ContextualVectorGenerator:
 
         # Reserve last few dimensions for metadata
         if self.vector_size >= 3:
-            vector[-3] = emotional_charge  # Emotional intensity
             vector[-1] = len(context_tags) / 10.0 if context_tags else 0.0  # Tag count
 
         return vector
@@ -233,7 +230,6 @@ class VectorGenerator:
         content: str,
         timestamp: Optional[float] = None,
         context_tags: Optional[List[str]] = None,
-        emotional_charge: float = 0.0,
         role: str = "user",
     ) -> Dict[str, List[float]]:
         """Generate all vector types for the given content and metadata.
@@ -242,7 +238,6 @@ class VectorGenerator:
             content: Text content to encode
             timestamp: Unix timestamp (uses current time if None)
             context_tags: List of context tags
-            emotional_charge: Emotional intensity (0.0 to 1.0)
             role: Role of the speaker ("user" or "assistant")
 
         Returns:
@@ -251,9 +246,7 @@ class VectorGenerator:
         return {
             "semantic": self.semantic_generator.generate(content),
             "temporal": self.temporal_generator.generate(timestamp),
-            "contextual": self.contextual_generator.generate(
-                context_tags, emotional_charge
-            ),
+            "contextual": self.contextual_generator.generate(context_tags),
             "role": self.role_generator.generate(role),
         }
 
@@ -272,7 +265,6 @@ def generate_vectors(
     content: str,
     timestamp: Optional[float] = None,
     context_tags: Optional[List[str]] = None,
-    emotional_charge: float = 0.0,
     role: str = "user",
 ) -> Dict[str, List[float]]:
     """
@@ -284,16 +276,13 @@ def generate_vectors(
         content: Text content to encode
         timestamp: Unix timestamp (uses current time if None)
         context_tags: List of context tags
-        emotional_charge: Emotional intensity (0.0 to 1.0)
         role: Role of the speaker ("user" or "assistant")
 
     Returns:
         Dictionary with 'semantic', 'temporal', 'contextual', and 'role' vectors
     """
     generator = VectorGenerator()
-    return generator.generate_all(
-        content, timestamp, context_tags, emotional_charge, role
-    )
+    return generator.generate_all(content, timestamp, context_tags, role)
 
 
 if __name__ == "__main__":
@@ -318,7 +307,6 @@ if __name__ == "__main__":
     # Test contextual generation
     contextual_vec = contextual_gen.generate(
         context_tags=["coding", "learning", "help"],
-        emotional_charge=0.3,
     )
     print(f"Contextual vector size: {len(contextual_vec)}")
     print(f"Contextual vector (last 5): {contextual_vec[-5:]}")
@@ -328,7 +316,6 @@ if __name__ == "__main__":
     vectors = generate_vectors(
         "Can you help me learn Python programming?",
         context_tags=["programming", "python", "help"],
-        emotional_charge=0.2,
     )
 
     for vector_type, vector in vectors.items():
