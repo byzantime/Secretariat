@@ -91,6 +91,25 @@ class MemoryService:
         )
         app.extensions["memory"] = self
 
+    def init_standalone(self):
+        """Initialize the memory service for standalone usage without Quart app."""
+        # Use hardcoded local Docker instance settings for standalone mode
+        host = "localhost"
+        port = 6333
+        self.collection_name = "memories"
+
+        # Initialize Qdrant client for local Docker instance
+        self.client = AsyncQdrantClient(host=host, port=port)
+
+        # Initialize components
+        self.analyzer = SentimentIntensityAnalyzer()
+        self.vector_generator = VectorGenerator()
+
+        print(
+            "Memory service initialized standalone with local Docker Qdrant at"
+            f" {host}:{port} using collection: {self.collection_name}"
+        )
+
     async def initialize_async(self):
         """Initialize async components like collection setup."""
         await self._setup_collection()
@@ -123,6 +142,27 @@ class MemoryService:
 
             current_app.logger.debug(
                 f"Stored assistant message in memory for conversation {conversation_id}"
+            )
+
+    async def _handle_user_message(self, data: Optional[Dict] = None):
+        """Handle LLM message complete event by storing user message in memory."""
+        if not data or not data.get("message"):
+            return
+
+        # Extract conversation context from current app state
+        communication_service = current_app.extensions["communication_service"]
+        if communication_service.current_conversation:
+            conversation_id = communication_service.current_conversation.id
+
+            # Store the user message in memory
+            await self.add(
+                utterance=data["message"],
+                role="user",
+                timestamp=datetime.now(),
+            )
+
+            current_app.logger.debug(
+                f"Stored user message in memory for conversation {conversation_id}"
             )
 
     async def _setup_collection(self):
@@ -460,122 +500,133 @@ class MemoryService:
         }
 
 
-# Example usage (legacy - would need app context to work properly)
-if __name__ == "__main__" and False:
-    import csv
-    import os
+# Standalone script execution
+if __name__ == "__main__":
 
-    # Load conversation data from CSV file
-    csv_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "scripts",
-        "memories_with_timestamps.csv",
-    )
+    async def main():
+        import csv
+        import os
 
-    conversation_data = []
-    print(f"Loading conversation data from {csv_path}...")
-
-    with open(csv_path, "r", encoding="utf-8") as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            conversation_data.append({
-                "content": row["utterance"],
-                "role": row["role"],
-                "timestamp": float(row["unix_timestamp"]),
-            })
-
-    print(f"Loaded {len(conversation_data)} conversation entries")
-
-    # Initialise memory system in bulk mode for fast testing
-    print("Initializing memory system in bulk mode...")
-    memory_sys = MemoryService()
-    memory_sys.bulk_mode = True
-
-    # Prepare all memories for bulk storage using real vectors
-    print(f"Preparing {len(conversation_data)} memories for bulk storage...")
-    start_time = time.time()
-
-    memories_to_store = []
-    for i, entry in enumerate(conversation_data):
-        # Generate real vectors for each piece of content
-        vectors = memory_sys.generate_vectors(
-            content=entry["content"],
-            role=entry["role"],
-            timestamp=entry["timestamp"],
-            context_tags=["conversation", "csv_data"],
-        )
-        memories_to_store.append(
-            (entry["content"], vectors, ["conversation", "csv_data"], entry["role"])
+        # Load conversation data from CSV file
+        csv_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "scripts",
+            "memories_with_timestamps.csv",
         )
 
-        # Print progress for longer operations
-        if (i + 1) % 50 == 0:
-            print(
-                f"  Generated vectors for {i + 1}/{len(conversation_data)} memories..."
+        conversation_data = []
+        print(f"Loading conversation data from {csv_path}...")
+
+        with open(csv_path, "r", encoding="utf-8") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                conversation_data.append({
+                    "content": row["utterance"],
+                    "role": row["role"],
+                    "timestamp": float(row["unix_timestamp"]),
+                })
+
+        print(f"Loaded {len(conversation_data)} conversation entries")
+
+        # Initialise memory system in bulk mode for fast testing
+        print("Initializing memory system in bulk mode...")
+        memory_sys = MemoryService()
+        memory_sys.bulk_mode = True
+        memory_sys.init_standalone()
+        await memory_sys.initialize_async()
+
+        # Prepare all memories for bulk storage using real vectors
+        print(f"Preparing {len(conversation_data)} memories for bulk storage...")
+        start_time = time.time()
+
+        memories_to_store = []
+        for i, entry in enumerate(conversation_data):
+            # Generate real vectors for each piece of content
+            vectors = await memory_sys.generate_vectors(
+                content=entry["content"],
+                role=entry["role"],
+                timestamp=entry["timestamp"],
+                context_tags=["conversation", "csv_data"],
+            )
+            memories_to_store.append(
+                (entry["content"], vectors, ["conversation", "csv_data"], entry["role"])
             )
 
-    prep_time = time.time() - start_time
-    print(f"Memory preparation took: {prep_time:.2f} seconds")
+            # Print progress for longer operations
+            if (i + 1) % 50 == 0:
+                print(
+                    "  Generated vectors for"
+                    f" {i + 1}/{len(conversation_data)} memories..."
+                )
 
-    # Bulk store all memories
-    print("Bulk storing memories...")
-    storage_start = time.time()
-    memory_ids = memory_sys.store_memories_bulk(memories_to_store)
-    storage_time = time.time() - storage_start
+        prep_time = time.time() - start_time
+        print(f"Memory preparation took: {prep_time:.2f} seconds")
 
-    print(
-        f"Bulk storage of {len(memory_ids)} memories took: {storage_time:.2f} seconds"
-    )
-    print(f"Average time per memory: {storage_time / len(memory_ids) * 1000:.1f} ms")
+        # Bulk store all memories
+        print("Bulk storing memories...")
+        storage_start = time.time()
+        memory_ids = await memory_sys.store_memories_bulk(memories_to_store)
+        storage_time = time.time() - storage_start
 
-    # Retrieve memories using real query vectors
-    print("\nRetrieving memories...")
-    query_entry = random.choice(conversation_data)
-    query_vectors = memory_sys.generate_vectors(
-        content=query_entry["content"],
-        role=query_entry["role"],
-        timestamp=query_entry["timestamp"],
-        context_tags=["conversation", "query"],
-    )
-    print(f"Query: '{query_entry['content']}' (role: {query_entry['role']})")
+        print(
+            f"Bulk storage of {len(memory_ids)} memories took:"
+            f" {storage_time:.2f} seconds"
+        )
+        print(
+            f"Average time per memory: {storage_time / len(memory_ids) * 1000:.1f} ms"
+        )
 
-    retrieved = memory_sys.retrieve_memories(query_vectors, limit=5)
-    print(f"Retrieved {len(retrieved)} memories:")
-    for mem in retrieved:
-        print(f"- {mem['content']}")
-        print(f"  Strength: {mem['strength']:.3f}")
+        # Retrieve memories using real query vectors
+        print("\nRetrieving memories...")
+        query_entry = random.choice(conversation_data)
+        query_vectors = await memory_sys.generate_vectors(
+            content=query_entry["content"],
+            role=query_entry["role"],
+            timestamp=query_entry["timestamp"],
+            context_tags=["conversation", "query"],
+        )
+        print(f"Query: '{query_entry['content']}' (role: {query_entry['role']})")
 
-    # Get all memories with strength for analysis
-    print("\nMemory analysis:")
-    all_memories = memory_sys.client.scroll(
-        collection_name=memory_sys.collection_name,
-        limit=memory_sys.max_memories,
-        with_payload=True,
-    )[0]
+        retrieved = await memory_sys.retrieve_memories(query_vectors, limit=5)
+        print(f"Retrieved {len(retrieved)} memories:")
+        for mem in retrieved:
+            print(f"- {mem['content']}")
+            print(f"  Strength: {mem['strength']:.3f}")
 
-    if all_memories:
-        # Calculate strength for all memories
-        memory_analysis = []
-        current_time = time.time()
+        # Get all memories with strength for analysis
+        print("\nMemory analysis:")
+        scroll_result = await memory_sys.client.scroll(
+            collection_name=memory_sys.collection_name,
+            limit=memory_sys.max_memories,
+            with_payload=True,
+        )
+        all_memories = scroll_result[0]
 
-        for memory_point in all_memories:
-            payload = memory_point.payload
-            strength = memory_sys._calculate_memory_strength(payload, current_time)
-            memory_analysis.append({
-                "content": (
-                    payload["content"][:100] + "..."
-                    if len(payload["content"]) > 100
-                    else payload["content"]
-                ),
-                "strength": strength,
-            })
+        if all_memories:
+            # Calculate strength for all memories
+            memory_analysis = []
+            current_time = time.time()
 
-        # Sort by strength
-        strongest = max(memory_analysis, key=lambda x: x["strength"])
-        weakest = min(memory_analysis, key=lambda x: x["strength"])
+            for memory_point in all_memories:
+                payload = memory_point.payload
+                strength = memory_sys._calculate_memory_strength(payload, current_time)
+                memory_analysis.append({
+                    "content": (
+                        payload["content"][:100] + "..."
+                        if len(payload["content"]) > 100
+                        else payload["content"]
+                    ),
+                    "strength": strength,
+                })
 
-        print(f"\nStrongest memory (strength: {strongest['strength']:.3f}):")
-        print(f"  {strongest['content']}")
+            # Sort by strength
+            strongest = max(memory_analysis, key=lambda x: x["strength"])
+            weakest = min(memory_analysis, key=lambda x: x["strength"])
 
-        print(f"\nWeakest memory (strength: {weakest['strength']:.3f}):")
-        print(f"  {weakest['content']}")
+            print(f"\nStrongest memory (strength: {strongest['strength']:.3f}):")
+            print(f"  {strongest['content']}")
+
+            print(f"\nWeakest memory (strength: {weakest['strength']:.3f}):")
+            print(f"  {weakest['content']}")
+
+    asyncio.run(main())
