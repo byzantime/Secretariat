@@ -29,6 +29,7 @@ from typing import Optional
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance
 from qdrant_client.models import Filter
+from qdrant_client.models import PayloadSchemaType
 from qdrant_client.models import PointStruct
 from qdrant_client.models import VectorParams
 from quart import current_app
@@ -165,7 +166,7 @@ class MemoryService:
         await self._handle_message(data, role="user")
 
     async def _setup_collection(self):
-        """Initialise Qdrant collection with multiple vector configurations."""
+        """Initialise Qdrant collection with multiple vector configurations and field indexes."""
         try:
             await self.client.get_collection(self.collection_name)
         except Exception:
@@ -179,9 +180,56 @@ class MemoryService:
                     "role": VectorParams(size=1, distance=Distance.COSINE),
                 },
             )
+
+            # Create field indexes for efficient filtering
+            await self._create_field_indexes()
+
             current_app.logger.info(
-                f"Memory collection '{self.collection_name}' setup complete"
+                f"Memory collection '{self.collection_name}' setup complete with field"
+                " indexes"
             )
+
+    async def _create_field_indexes(self):
+        """Create field indexes for efficient filtering."""
+        try:
+            # Create indexes for the fields we filter on
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="conversation_id",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="role",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="context_tags",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="created_at",
+                field_schema=PayloadSchemaType.INTEGER,
+            )
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="last_accessed",
+                field_schema=PayloadSchemaType.INTEGER,
+            )
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="retrieval_count",
+                field_schema=PayloadSchemaType.INTEGER,
+            )
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="emotional_charge",
+                field_schema=PayloadSchemaType.FLOAT,
+            )
+        except Exception as e:
+            current_app.logger.warning(f"Failed to create some field indexes: {e}")
 
     def _calculate_emotional_charge(self, content: str) -> float:
         """Calculate emotional charge using VADER sentiment analysis."""

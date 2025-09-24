@@ -333,7 +333,9 @@ class TelegramChannel(CommunicationChannel):
                     chat_id=chat_id, text=content, parse_mode="Markdown"
                 )
             except Exception as e:
-                current_app.logger.error(f"Failed to send completion to {chat_id}: {e}")
+                current_app.logger.error(
+                    f"Failed to send completion to {chat_id}: {e}", exc_info=True
+                )
                 success = False
         return success
 
