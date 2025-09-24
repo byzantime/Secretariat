@@ -312,7 +312,9 @@ class TelegramChannel(CommunicationChannel):
                 )
 
         except Exception as e:
-            current_app.logger.error(f"Telegram bot initialization failed: {e}")
+            current_app.logger.error(
+                f"Telegram bot initialization failed: {e}", exc_info=True
+            )
             # Reset bot state on failure
             self.bot = None
             self.application = None

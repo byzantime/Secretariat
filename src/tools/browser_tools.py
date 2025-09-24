@@ -17,30 +17,46 @@ def create_browser_llm():
 
 
 async def browse_web(ctx: RunContext[dict], task: str) -> str:
-    """Use this tool when the user asks to visit, open, navigate to, or browse any website.
+    """Use this tool for interactive web browsing, website navigation, and complex web interactions.
 
     **When to use this tool:**
-    - User says "open [website]" or "go to [website]"
-    - User asks to visit a specific webpage or URL
-    - User wants to browse, navigate, or access any web content
-    - User requests web searches, online research, or data extraction
-    - User asks to interact with websites (fill forms, click buttons, etc.)
+    - User says "open [website]" or "go to [website]" or "navigate to [URL]"
+    - User asks to visit a specific webpage or URL directly
+    - User wants to interact with websites (fill forms, click buttons, submit data)
+    - User requests tasks requiring persistent browser sessions or login
+    - User needs to extract specific data from particular websites
+    - User asks for complex multi-step website operations
+
+    **This tool is ideal for:**
+    - Direct website navigation and browsing
+    - Interactive web tasks (forms, clicks, scrolling, typing)
+    - Tasks requiring authentication or session persistence
+    - Complex website workflows and multi-step processes
+    - Specific data extraction from known websites
+    - E-commerce tasks (shopping, cart management, checkout)
+
+    **Do NOT use this tool for:**
+    - Simple web searches or information lookups
+    - General research questions
+    - Getting current news or facts
+    - Quick information retrieval
 
     This tool controls a persistent browser that can:
     - Navigate to any website or URL
-    - Search for information online
     - Fill out forms and submit data
+    - Click buttons, links, and interactive elements
     - Extract text, data, or content from web pages
     - Handle login flows (will pause for user input when needed)
     - Maintain session state across multiple requests
+    - Take screenshots and capture page content
 
     Args:
         task: Describe what to do on the web. Be specific about the website and action.
               Examples:
-              - "Go to google.com and search for 'best restaurants near me'"
               - "Navigate to amazon.com, search for 'wireless headphones', and get the first 3 product details"
               - "Fill out the contact form on example.com with my information"
               - "Go to my bank website and check my account balance" (will pause for human login)
+              - "Open GitHub, navigate to my repositories, and create a new repository"
 
     Returns:
         A description of what was accomplished, including any extracted data or results.
