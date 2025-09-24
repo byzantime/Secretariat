@@ -468,41 +468,6 @@ class MemoryService:
             )
             print(f"Deleted {len(to_delete)} weak memories")
 
-    async def get_memory_stats(self) -> Dict[str, Any]:
-        """Get statistics about the memory system."""
-        scroll_result = await self.client.scroll(
-            collection_name=self.collection_name,
-            limit=self.max_memories,
-            with_payload=True,
-        )
-        all_memories = scroll_result[0]
-
-        if not all_memories:
-            return {"total_memories": 0}
-
-        strengths = []
-        ages = []
-        current_time = time.time()
-
-        for memory_point in all_memories:
-            payload = memory_point.payload
-            strength = self._calculate_memory_strength(payload, current_time)
-            age_days = (current_time - payload["created_at"]) / 86400
-
-            strengths.append(strength)
-            ages.append(age_days)
-
-        return {
-            "total_memories": len(all_memories),
-            "avg_strength": sum(strengths) / len(strengths),
-            "min_strength": min(strengths),
-            "max_strength": max(strengths),
-            "avg_age_days": sum(ages) / len(ages),
-            "weak_memories": len(
-                [s for s in strengths if s < self.min_strength_threshold]
-            ),
-        }
-
 
 # Standalone script execution
 if __name__ == "__main__":
