@@ -65,10 +65,46 @@ To enable Telegram integration during local development:
 
 The webhook will be automatically configured when the app starts. You can now message your bot on Telegram and it will communicate with your local development server!
 
+### Qdrant Setup
+
+Secretariat uses [Qdrant](https://qdrant.tech/) as a vector database for its memory system. You can run Qdrant locally with Docker or use Qdrant Cloud.
+
+#### Local Docker Setup
+
+Run Qdrant locally using Docker:
+
+```bash
+docker run -p 6333:6333 qdrant/qdrant
+```
+
+Add these environment variables to your `.env` file:
+
+```bash
+# Local Qdrant configuration (default values)
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+```
+
+#### Qdrant Cloud Setup
+
+1. **Create a Qdrant Cloud cluster**:
+   - Visit [https://cloud.qdrant.io/](https://cloud.qdrant.io/)
+   - Sign up and create a new cluster
+   - Note your cluster URL and API key
+
+2. **Configure cloud connection** in your `.env` file:
+   ```bash
+   # Qdrant Cloud configuration
+   QDRANT_HOST=https://your-cluster-url.qdrant.tech
+   QDRANT_API_KEY=your-api-key-here
+   ```
+
+The memory system will automatically create the required collection (`memories`) when the application starts.
+
 ### Updating dependencies:
 
 ```bash
 # First add the new dependency to requirements.in, then:
-uv pip compile requirements.in
-uv pip install -r requirements.txt
+$ uv pip compile requirements.in --output-file requirements.txt --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu
+uv pip install -r requirements.txt --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu
 ```

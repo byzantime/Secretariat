@@ -39,6 +39,9 @@ class LoggingHelper:
         root_logger = logging.getLogger()
         root_logger.setLevel(numeric_level)
 
+        # Clear existing handlers to prevent duplicates
+        root_logger.handlers.clear()
+
         # Create console handler
         console_handler = logging.StreamHandler()
 
@@ -54,6 +57,8 @@ class LoggingHelper:
         # Configure Quart app logger
         app.logger.removeHandler(default_handler)
         app.logger.setLevel(numeric_level)
+        # Ensure app logger propagates to root logger (our single handler)
+        app.logger.propagate = True
 
         # Set all existing loggers to WARNING by default
         self._configure_third_party_loggers(app)

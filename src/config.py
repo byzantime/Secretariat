@@ -36,3 +36,9 @@ class Config:
     TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_WEBHOOK_URL = os.environ.get("TELEGRAM_WEBHOOK_URL", "")
     TELEGRAM_ALLOWED_USERS = os.environ.get("TELEGRAM_ALLOWED_USERS", "")
+
+    # Memory System Configuration
+    QDRANT_HOST = os.environ.get("QDRANT_HOST", "localhost")
+    QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
+    QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")
+    MEMORY_COLLECTION_NAME = os.environ.get("MEMORY_COLLECTION_NAME", "memories")

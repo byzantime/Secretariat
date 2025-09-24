@@ -4,12 +4,13 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
+import pytest_asyncio
 
 from src import create_app
 
 
-@pytest.fixture
-def app():
+@pytest_asyncio.fixture
+async def app():
     """Create an application for unit testing with mocked dependencies."""
     # Create the app with test config
     test_config = {
@@ -25,27 +26,53 @@ def app():
         app = create_app(test_config)
 
         # Mock the extensions that would normally be initialized
-        app.extensions["database"] = MagicMock()
+        from unittest.mock import AsyncMock
+
+        mock_db = MagicMock()
+
+        # Create a proper async context manager for session factory
+        mock_session = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_context.__aexit__ = AsyncMock(return_value=None)
+        mock_session_factory = MagicMock(return_value=mock_session_context)
+        mock_db.session_factory = mock_session_factory
+
+        # Mock scheduling service
+        mock_scheduling = MagicMock()
+        mock_scheduling.schedule_agent_execution = AsyncMock()
+
+        app.extensions["database"] = mock_db
         app.extensions["user_manager"] = MagicMock()
         app.extensions["connection_manager"] = MagicMock()
+        app.extensions["scheduling"] = mock_scheduling
 
     # Setup app context for testing
-    ctx = app.app_context()
-    ctx.push()
-
-    yield app
-
-    # Teardown
-    ctx.pop()
+    async with app.app_context():
+        yield app
 
 
-@pytest.fixture
-def client(app):
+@pytest_asyncio.fixture
+async def client(app):
     """Create a test client for the app."""
     return app.test_client()
 
 
-@pytest.fixture
-def cli_runner(app):
+@pytest_asyncio.fixture
+async def cli_runner(app):
     """Create a CLI runner for testing CLI commands."""
     return app.test_cli_runner()
+
+
+@pytest.fixture
+def conversation_manager():
+    """Mock conversation manager."""
+    return MagicMock()
+
+
+@pytest.fixture
+def mock_conversation_id():
+    """Mock conversation ID."""
+    import uuid
+
+    return uuid.uuid4()

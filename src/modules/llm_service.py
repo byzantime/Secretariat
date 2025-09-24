@@ -14,6 +14,7 @@ from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
 
 from src.tools.browser_tools import browse_web
+from src.tools.memory_tools import memory_search
 from src.tools.scheduling_tools import automations_search
 from src.tools.scheduling_tools import setup_automation
 from src.tools.todo_tools import todo_read
@@ -104,6 +105,7 @@ class LLMService:
         self.agent.tool(todo_read)
         self.agent.tool(todo_write)
         self.agent.tool(browse_web)
+        self.agent.tool(memory_search)
         self.agent.tool(setup_automation)
         self.agent.tool(automations_search)
 
@@ -128,7 +130,7 @@ class LLMService:
 
             # Log the start of LLM processing
             current_app.logger.info(
-                f"🤖 Starting LLM processing for: {user_message[:100]}..."
+                f"Starting LLM processing for: {user_message[:100]}..."
             )
 
             # Log current time for debugging
