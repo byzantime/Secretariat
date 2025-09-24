@@ -1,5 +1,6 @@
 """Unit tests for the memory system."""
 
+import asyncio
 import time
 import uuid
 from unittest.mock import MagicMock
@@ -51,6 +52,8 @@ def mock_sentiment_analyzer():
 @pytest.fixture
 def mock_app():
     """Mock Quart app with required configuration and extensions."""
+    from unittest.mock import AsyncMock
+
     mock_app = MagicMock()
 
     # Configure app config
@@ -84,6 +87,8 @@ def mock_app():
 @pytest.fixture
 def mock_bulk_app():
     """Mock Quart app configured for bulk operations."""
+    from unittest.mock import AsyncMock
+
     mock_app = MagicMock()
 
     # Configure app config
@@ -117,17 +122,20 @@ def mock_bulk_app():
 @pytest_asyncio.fixture
 async def memory_system(mock_app, mock_vector_generator, mock_sentiment_analyzer):
     """Create a MemoryService instance with in-memory Qdrant and mocked dependencies."""
+    from src.modules import memory
+
     with (
         patch("src.modules.memory.VectorGenerator", return_value=mock_vector_generator),
         patch(
             "src.modules.memory.SentimentIntensityAnalyzer",
             return_value=mock_sentiment_analyzer,
         ),
+        patch.object(memory, "current_app", mock_app),
     ):
         # Use new Quart extension pattern
         system = MemoryService()
         system.init_app(mock_app)
-        await system.initialize_async()
+        await system._setup_collection()
 
         return system
 
@@ -137,16 +145,19 @@ async def bulk_memory_system(
     mock_bulk_app, mock_vector_generator, mock_sentiment_analyzer
 ):
     """Create a MemoryService instance in bulk mode."""
+    from src.modules import memory
+
     with (
         patch("src.modules.memory.VectorGenerator", return_value=mock_vector_generator),
         patch(
             "src.modules.memory.SentimentIntensityAnalyzer",
             return_value=mock_sentiment_analyzer,
         ),
+        patch.object(memory, "current_app", mock_bulk_app),
     ):
         system = MemoryService()
         system.init_app(mock_bulk_app)
-        await system.initialize_async()
+        await system._setup_collection()
         system.bulk_mode = True  # Enable bulk mode after initialization
 
         return system
@@ -444,10 +455,13 @@ class TestMemoryRetrieval:
         initial_retrieval_count = initial_memory.payload["retrieval_count"]
 
         # Wait a bit to ensure timestamp difference
-        time.sleep(0.01)
+        time.sleep(0.1)
 
         # Retrieve the memory
         await memory_system.retrieve_memories(sample_vectors, limit=5)
+
+        # Wait for background update task to complete
+        await asyncio.sleep(0.1)
 
         # Check updated stats
         updated_memory = (

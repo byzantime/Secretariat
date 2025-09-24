@@ -178,7 +178,7 @@ class MemoryService:
                     "role": VectorParams(size=1, distance=Distance.COSINE),
                 },
             )
-            app.logger.info(
+            current_app.logger.info(
                 f"Memory collection '{self.collection_name}' setup complete"
             )
 
@@ -409,8 +409,25 @@ class MemoryService:
                 "payload": payload,
             })
 
-        # Update accessed memories in batch
+        # Update accessed memories in background (non-blocking)
         if memories_to_update:
+            asyncio.create_task(self._update_accessed_memories(memories_to_update))
+
+        # Sort by similarity score only
+        retrieved_memories.sort(key=lambda x: x["score"], reverse=True)
+
+        return retrieved_memories
+
+    async def _update_accessed_memories(self, memories_to_update: List[Dict[str, Any]]):
+        """Asynchronously update access stats for retrieved memories.
+
+        Args:
+            memories_to_update: List of dicts containing 'id' and 'payload' keys
+        """
+        if not memories_to_update:
+            return
+
+        try:
             points = [
                 PointStruct(
                     id=mem["id"],
@@ -423,11 +440,8 @@ class MemoryService:
             await self.client.upsert(
                 collection_name=self.collection_name, points=points
             )
-
-        # Sort by similarity score only
-        retrieved_memories.sort(key=lambda x: x["score"], reverse=True)
-
-        return retrieved_memories
+        except Exception as e:
+            current_app.logger.error(f"Failed to update accessed memories: {e}")
 
     async def _cleanup_weak_memories(self):
         """Remove memories below strength threshold or when at capacity."""

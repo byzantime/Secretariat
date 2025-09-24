@@ -86,7 +86,7 @@ async def memory_search(ctx: RunContext[dict], query: str) -> str:
             content = payload["content"]
             role = payload.get("role", "unknown")
             created_at = payload.get("created_at")
-            similarity_score = memory.get("score", 0)
+            memory.get("score", 0)
 
             # Format timestamp
             if created_at:
