@@ -1,7 +1,7 @@
 alembic
 apscheduler
 browser-use
-pydantic-ai
+pydantic-ai-slim[duckduckgo]
 asyncpg
 httpx
 jinja-ui-kit @ git+https://github.com/byzantime/jinja-ui-kit.git

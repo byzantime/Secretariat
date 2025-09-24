@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from pydantic_ai import Agent
 from pydantic_ai import RunContext
 from pydantic_ai import capture_run_messages
+from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
@@ -66,6 +67,7 @@ class LLMService:
             deps_type=dict,  # We'll pass conversation context as deps
             system_prompt="You are a helpful AI assistant.",
             instructions=instructions_content,
+            tools=[duckduckgo_search_tool()],
         )
 
         # Create extraction agent for structured data extraction
