@@ -33,10 +33,7 @@ from qdrant_client.models import VectorParams
 from quart import current_app
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-try:
-    from .vector_generator import VectorGenerator
-except ImportError:
-    from vector_generator import VectorGenerator
+from src.modules.vector_generator import VectorGenerator
 
 
 class MemoryService:
@@ -86,6 +83,12 @@ class MemoryService:
         # Subscribe to LLM events for automatic memory storage
         self._subscribe_to_events(app)
 
+        # Set up collection on app startup
+        @app.before_serving
+        async def setup_memory_collection():
+            """Ensure the memory collection exists on startup."""
+            await self._setup_collection()
+
         app.logger.info(
             f"Memory service initialized with collection: {self.collection_name}"
         )
@@ -110,10 +113,6 @@ class MemoryService:
             f" {host}:{port} using collection: {self.collection_name}"
         )
 
-    async def initialize_async(self):
-        """Initialize async components like collection setup."""
-        await self._setup_collection()
-
     def is_available(self) -> bool:
         """Check if the memory service is available."""
         return self.client is not None and self.analyzer is not None
@@ -122,48 +121,47 @@ class MemoryService:
         """Subscribe to relevant events for automatic memory storage."""
         event_handler = app.extensions["event_handler"]
         event_handler.on("llm.message.complete", self._handle_assistant_message)
+        event_handler.on("chat.message", self._handle_user_message)
 
-    async def _handle_assistant_message(self, data: Optional[Dict] = None):
+    async def _handle_message(
+        self, data: Optional[Dict] = None, role: str = "assistant"
+    ):
+        """Handle message events by storing messages in memory."""
+        # Determine the content key based on role
+        content_key = "content" if role == "assistant" else "message"
+
+        if not data or not data.get(content_key):
+            current_app.logger.debug(f"No {role} message found in event data: {data}")
+            return
+
+        # Extract conversation context from current app state
+        communication_service = current_app.extensions["communication_service"]
+        if communication_service.current_conversation:
+            conversation_id = communication_service.current_conversation.id
+
+            # Store the message in memory
+            await self.add(
+                conversation_id=conversation_id,
+                utterance=data[content_key],
+                role=role,
+                timestamp=datetime.now(),
+            )
+
+            current_app.logger.debug(
+                f"Stored {role} message in memory for conversation {conversation_id}"
+            )
+        else:
+            current_app.logger.debug(
+                f"No current conversation found for {role} message: {data}"
+            )
+
+    async def _handle_assistant_message(self, data: Dict):
         """Handle LLM message complete event by storing assistant message in memory."""
-        if not data or not data.get("content"):
-            return
+        await self._handle_message(data, role="assistant")
 
-        # Extract conversation context from current app state
-        communication_service = current_app.extensions["communication_service"]
-        if communication_service.current_conversation:
-            conversation_id = communication_service.current_conversation.id
-
-            # Store the assistant message in memory
-            await self.add(
-                utterance=data["content"],
-                role="assistant",
-                timestamp=datetime.now(),
-            )
-
-            current_app.logger.debug(
-                f"Stored assistant message in memory for conversation {conversation_id}"
-            )
-
-    async def _handle_user_message(self, data: Optional[Dict] = None):
-        """Handle LLM message complete event by storing user message in memory."""
-        if not data or not data.get("message"):
-            return
-
-        # Extract conversation context from current app state
-        communication_service = current_app.extensions["communication_service"]
-        if communication_service.current_conversation:
-            conversation_id = communication_service.current_conversation.id
-
-            # Store the user message in memory
-            await self.add(
-                utterance=data["message"],
-                role="user",
-                timestamp=datetime.now(),
-            )
-
-            current_app.logger.debug(
-                f"Stored user message in memory for conversation {conversation_id}"
-            )
+    async def _handle_user_message(self, data: Dict):
+        """Handle user message event by storing user message in memory."""
+        await self._handle_message(data, role="user")
 
     async def _setup_collection(self):
         """Initialise Qdrant collection with multiple vector configurations."""
@@ -179,6 +177,9 @@ class MemoryService:
                     "contextual": VectorParams(size=100, distance=Distance.COSINE),
                     "role": VectorParams(size=1, distance=Distance.COSINE),
                 },
+            )
+            app.logger.info(
+                f"Memory collection '{self.collection_name}' setup complete"
             )
 
     def _calculate_emotional_charge(self, content: str) -> float:
@@ -257,6 +258,7 @@ class MemoryService:
         vectors: Dict[str, List[float]],
         context_tags: Optional[List[str]] = None,
         role: str = "user",
+        **kwargs,
     ) -> str:
         """Store a new memory in the system."""
         memory_id = str(uuid.uuid4())
@@ -276,6 +278,7 @@ class MemoryService:
                 "emotional_charge": emotional_charge,
                 "context_tags": context_tags or [],
                 "role": role,
+                **kwargs,  # Merge in any additional payload data
             },
         )
 
@@ -288,6 +291,7 @@ class MemoryService:
 
     async def add(
         self,
+        conversation_id: str,
         utterance: str,
         role: str,
         timestamp: datetime,
@@ -296,6 +300,7 @@ class MemoryService:
         """Convenient method to add a memory with automatic vector generation.
 
         Args:
+            conversation_id: ID of the conversation this memory belongs to
             utterance: The text content of the memory
             role: Role of the speaker ("user" or "assistant")
             timestamp: When the utterance occurred
@@ -317,6 +322,7 @@ class MemoryService:
             vectors=vectors,
             context_tags=context_tags,
             role=role,
+            conversation_id=conversation_id,
         )
 
     async def store_memories_bulk(
@@ -531,7 +537,7 @@ if __name__ == "__main__":
         memory_sys = MemoryService()
         memory_sys.bulk_mode = True
         memory_sys.init_standalone()
-        await memory_sys.initialize_async()
+        await memory_sys._setup_collection()
 
         # Prepare all memories for bulk storage using real vectors
         print(f"Preparing {len(conversation_data)} memories for bulk storage...")

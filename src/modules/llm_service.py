@@ -128,7 +128,7 @@ class LLMService:
 
             # Log the start of LLM processing
             current_app.logger.info(
-                f"🤖 Starting LLM processing for: {user_message[:100]}..."
+                f"Starting LLM processing for: {user_message[:100]}..."
             )
 
             # Log current time for debugging
