@@ -66,7 +66,7 @@ async def memory_search(ctx: RunContext[dict], query: str) -> str:
                 must_not=[
                     FieldCondition(
                         key="conversation_id",
-                        match=MatchValue(value=current_conversation_id),
+                        match=MatchValue(value=str(current_conversation_id)),
                     )
                 ]
             )
