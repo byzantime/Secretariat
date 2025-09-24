@@ -398,11 +398,9 @@ class MemoryService:
 
             retrieved_memories.append({
                 "id": memory_id,
-                "content": payload["content"],
                 "strength": strength,
                 "score": result.score,
-                "context_tags": payload.get("context_tags", []),
-                "role": payload.get("role", "user"),
+                "payload": payload,
             })
 
         # Update accessed memories in batch
@@ -590,8 +588,8 @@ if __name__ == "__main__":
         retrieved = await memory_sys.retrieve_memories(query_vectors, limit=5)
         print(f"Retrieved {len(retrieved)} memories:")
         for mem in retrieved:
-            print(f"- {mem['content']}")
-            print(f"  Strength: {mem['strength']:.3f}")
+            print(f"- {mem['payload']['content']}")
+            print(f"  {mem}")
 
         # Get all memories with strength for analysis
         print("\nMemory analysis:")

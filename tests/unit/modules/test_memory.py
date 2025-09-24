@@ -419,10 +419,10 @@ class TestMemoryRetrieval:
 
         assert len(retrieved) == 1
         assert retrieved[0]["id"] == memory_id
-        assert retrieved[0]["content"] == content
+        assert retrieved[0]["payload"]["content"] == content
         assert "strength" in retrieved[0]
         assert "score" in retrieved[0]
-        assert retrieved[0]["context_tags"] == ["test"]
+        assert retrieved[0]["payload"]["context_tags"] == ["test"]
 
     @pytest.mark.asyncio
     async def test_retrieve_memories_updates_access_stats(
