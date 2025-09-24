@@ -44,70 +44,55 @@ async def memory_search(ctx: RunContext[dict], query: str) -> str:
     if not memory_service.is_available():
         return "Memory search is not available at the moment."
 
+    # Generate query vectors for semantic search
+    query_vectors = await memory_service.generate_vectors(
+        content=query,
+        role="user",  # Role for query doesn't matter much for semantic search
+        timestamp=None,  # Current time will be used
+        context_tags=["search_query"],
+    )
+
     # Get current conversation ID to exclude from results
     conversation = ctx.deps.get("conversation")
     current_conversation_id = None
     if conversation:
         current_conversation_id = getattr(conversation, "id", None)
 
-    try:
-        # Generate query vectors for semantic search
-        query_vectors = await memory_service.generate_vectors(
-            content=query,
-            role="user",  # Role for query doesn't matter much for semantic search
-            timestamp=None,  # Current time will be used
-            context_tags=["search_query"],
+    # Create filter to exclude current conversation
+    query_filter = None
+    if current_conversation_id:
+        query_filter = Filter(
+            must_not=[
+                FieldCondition(
+                    key="conversation_id",
+                    match=MatchValue(value=str(current_conversation_id)),
+                )
+            ]
         )
 
-        # Create filter to exclude current conversation
-        query_filter = None
-        if current_conversation_id:
-            query_filter = Filter(
-                must_not=[
-                    FieldCondition(
-                        key="conversation_id",
-                        match=MatchValue(value=str(current_conversation_id)),
-                    )
-                ]
-            )
+    # Retrieve relevant memories (limit to 15 for reasonable response size)
+    memories = await memory_service.retrieve_memories(
+        query_vectors=query_vectors, limit=15, query_filter=query_filter
+    )
 
-        # Retrieve relevant memories (limit to 15 for reasonable response size)
-        memories = await memory_service.retrieve_memories(
-            query_vectors=query_vectors, limit=15, query_filter=query_filter
-        )
+    if not memories:
+        return "No relevant memories found from previous conversations."
 
-        if not memories:
-            return "No relevant memories found from previous conversations."
+    # Format results as markdown
+    result = f'## Memory Search Results for: "{query}"\n\n'
+    result += (
+        f"Found {len(memories)} relevant memories from previous conversations:\n\n"
+    )
 
-        # Format results as markdown
-        result = f'## Memory Search Results for: "{query}"\n\n'
-        result += (
-            f"Found {len(memories)} relevant memories from previous conversations:\n\n"
-        )
+    for i, memory in enumerate(memories, 1):
+        payload = memory["payload"]
+        content = payload["content"]
+        role = payload.get("role", "unknown")
+        created_at = payload.get("created_at")
 
-        for i, memory in enumerate(memories, 1):
-            payload = memory["payload"]
-            content = payload["content"]
-            role = payload.get("role", "unknown")
-            created_at = payload.get("created_at")
-            memory.get("score", 0)
+        # Format timestamp
+        timestamp = datetime.fromtimestamp(created_at).strftime("%Y-%m-%d %H:%M")
+        result += f"**{i}.** `{timestamp}` **{role}**: {content}\n"
 
-            # Format timestamp
-            if created_at:
-                try:
-                    timestamp = datetime.fromtimestamp(created_at).strftime(
-                        "%Y-%m-%d %H:%M"
-                    )
-                except (ValueError, TypeError):
-                    timestamp = "unknown time"
-            else:
-                timestamp = "unknown time"
-
-            result += f"**{i}.** `{timestamp}` **{role}**: {content}\n"
-
-        current_app.logger.info(result)
-        return result.strip()
-
-    except Exception as e:
-        current_app.logger.error(f"Error in memory search: {str(e)}")
-        return f"Error occurred while searching memories: {str(e)}"
+    current_app.logger.info(result)
+    return result.strip()
