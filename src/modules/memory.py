@@ -28,6 +28,7 @@ from typing import Optional
 
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance
+from qdrant_client.models import Filter
 from qdrant_client.models import PointStruct
 from qdrant_client.models import VectorParams
 from quart import current_app
@@ -371,7 +372,10 @@ class MemoryService:
         return memory_ids
 
     async def retrieve_memories(
-        self, query_vectors: Dict[str, List[float]], limit: int = 10
+        self,
+        query_vectors: Dict[str, List[float]],
+        limit: int = 10,
+        query_filter: Optional[Filter] = None,
     ) -> List[Dict[str, Any]]:
         """Retrieve most relevant memories and update their strength."""
         # For simplicity, use the first vector type for initial search
@@ -384,6 +388,7 @@ class MemoryService:
             using=vector_name,
             limit=limit,
             with_payload=True,
+            query_filter=query_filter,
         )
         results = results.points
 

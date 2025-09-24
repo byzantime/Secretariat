@@ -52,7 +52,6 @@ def mock_sentiment_analyzer():
 @pytest.fixture
 def mock_app():
     """Mock Quart app with required configuration and extensions."""
-    from unittest.mock import AsyncMock
 
     mock_app = MagicMock()
 
@@ -87,7 +86,6 @@ def mock_app():
 @pytest.fixture
 def mock_bulk_app():
     """Mock Quart app configured for bulk operations."""
-    from unittest.mock import AsyncMock
 
     mock_app = MagicMock()
 

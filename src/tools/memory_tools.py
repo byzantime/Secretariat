@@ -3,6 +3,9 @@
 from datetime import datetime
 
 from pydantic_ai import RunContext
+from qdrant_client.models import FieldCondition
+from qdrant_client.models import Filter
+from qdrant_client.models import MatchValue
 from quart import current_app
 
 
@@ -56,32 +59,33 @@ async def memory_search(ctx: RunContext[dict], query: str) -> str:
             context_tags=["search_query"],
         )
 
+        # Create filter to exclude current conversation
+        query_filter = None
+        if current_conversation_id:
+            query_filter = Filter(
+                must_not=[
+                    FieldCondition(
+                        key="conversation_id",
+                        match=MatchValue(value=current_conversation_id),
+                    )
+                ]
+            )
+
         # Retrieve relevant memories (limit to 15 for reasonable response size)
         memories = await memory_service.retrieve_memories(
-            query_vectors=query_vectors, limit=15
+            query_vectors=query_vectors, limit=15, query_filter=query_filter
         )
 
         if not memories:
-            return "No relevant memories found for your search query."
-
-        # Filter out memories from current conversation
-        filtered_memories = []
-        for memory in memories:
-            memory_conversation_id = memory["payload"].get("conversation_id")
-            if memory_conversation_id != current_conversation_id:
-                filtered_memories.append(memory)
-
-        if not filtered_memories:
             return "No relevant memories found from previous conversations."
 
         # Format results as markdown
         result = f'## Memory Search Results for: "{query}"\n\n'
         result += (
-            f"Found {len(filtered_memories)} relevant memories from previous"
-            " conversations:\n\n"
+            f"Found {len(memories)} relevant memories from previous conversations:\n\n"
         )
 
-        for i, memory in enumerate(filtered_memories, 1):
+        for i, memory in enumerate(memories, 1):
             payload = memory["payload"]
             content = payload["content"]
             role = payload.get("role", "unknown")
