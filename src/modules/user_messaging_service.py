@@ -423,6 +423,10 @@ class TelegramChannel(CommunicationChannel):
         if not await self.is_connected():
             return False
 
+        # Handle None status_message
+        if status_message is None:
+            return False
+
         # Only send typing indicators for certain status messages
         if status_message.lower() not in ["thinking...", "generating..."]:
             return False
