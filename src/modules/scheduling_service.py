@@ -308,36 +308,21 @@ class SchedulingService:
             # This will use the same model and configuration as the main agent
             temp_agent = llm_service.agent
 
-            # Get conversation manager
-            conversation_manager = current_app.extensions["conversation_manager"]
-            conversation = await conversation_manager.get_conversation(conversation_id)
-
-            if not conversation:
-                raise ValueError(f"Conversation {conversation_id} not found")
-
-            # Get conversation history
-            message_history = conversation.get_pydantic_messages(
-                last_n=llm_service.max_history
-            )
-
-            # Execute the agent based on interactive mode
-            deps = {"conversation_id": conversation_id, "conversation": conversation}
-
             if interactive:
                 # Interactive mode: use streaming with full event emission
                 await llm_service.execute_agent_stream(
                     agent_instructions=agent_instructions,
-                    message_history=message_history,
-                    deps=deps,
+                    message_history=[],
+                    deps={},
                     emit_events=True,  # Interactive mode should emit events
-                    store_result=True,  # Interactive sessions should store results
+                    store_result=True,  # Agent output will be added to history.
                 )
             else:
                 # Non-interactive mode: use batch execution
                 result = await temp_agent.run(
                     user_prompt=agent_instructions,
-                    message_history=message_history,
-                    deps=deps,
+                    message_history=[],
+                    deps={},
                 )
                 # Store the result in conversation
                 conversation.store_run_result(result)

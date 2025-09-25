@@ -203,7 +203,7 @@ class LLMService:
                     # Use streaming for interactive tasks
                     async with self.agent.run_stream(
                         user_prompt=agent_instructions,
-                        message_history=message_history[:-1] if message_history else [],
+                        message_history=message_history,
                         deps=deps,
                     ) as result:
                         async for text in result.stream_text():
