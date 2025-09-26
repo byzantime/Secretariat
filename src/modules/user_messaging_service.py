@@ -163,9 +163,10 @@ class WebUIChannel(CommunicationChannel):
             )
             return
 
-        current_app.logger.debug(
-            f"Broadcasting event '{event_type}' to {len(self._sse_clients)} clients"
-        )
+        if "update" not in event_type:
+            current_app.logger.debug(
+                f"Broadcasting event '{event_type}' to {len(self._sse_clients)} clients"
+            )
 
         # Send to all connected clients
         dead_clients = []
@@ -341,24 +342,6 @@ class TelegramChannel(CommunicationChannel):
                 success = False
         return success
 
-    async def send_error(self, error_message: str) -> bool:
-        """Send error message via Telegram."""
-        if not await self.is_connected():
-            return False
-
-        success = True
-        for chat_id in self._user_conversations.keys():
-            try:
-                await self.bot.send_message(
-                    chat_id=chat_id,
-                    text=f"❌ Error: {error_message}",
-                    parse_mode="Markdown",
-                )
-            except Exception as e:
-                current_app.logger.error(f"Failed to send error to {chat_id}: {e}")
-                success = False
-        return success
-
     async def send_tool_notification(self, tool_name: str, tool_args: dict) -> bool:
         """Send tool usage notification via Telegram."""
         if not await self.is_connected():
@@ -369,7 +352,7 @@ class TelegramChannel(CommunicationChannel):
             try:
                 await self.bot.send_message(
                     chat_id=chat_id,
-                    text=f"🔧 Using tool: *{tool_name}*",
+                    text=f"🔧 Used tool: *{tool_name}*",
                     parse_mode="Markdown",
                 )
             except Exception as e:

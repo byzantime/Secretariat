@@ -137,25 +137,22 @@ class MemoryService:
             return
 
         # Extract conversation context from current app state
+        conversation_id = None
         communication_service = current_app.extensions["communication_service"]
         if communication_service.current_conversation:
             conversation_id = communication_service.current_conversation.id
 
-            # Store the message in memory
-            await self.add(
-                conversation_id=conversation_id,
-                utterance=data[content_key],
-                role=role,
-                timestamp=datetime.now(),
-            )
+        # Store the message in memory
+        await self.add(
+            utterance=data[content_key],
+            role=role,
+            timestamp=datetime.now(),
+            conversation_id=conversation_id,
+        )
 
-            current_app.logger.debug(
-                f"Stored {role} message in memory for conversation {conversation_id}"
-            )
-        else:
-            current_app.logger.debug(
-                f"No current conversation found for {role} message: {data}"
-            )
+        current_app.logger.debug(
+            f"Stored {role} message in memory for conversation {conversation_id}"
+        )
 
     async def _handle_assistant_message(self, data: Dict):
         """Handle LLM message complete event by storing assistant message in memory."""
@@ -340,10 +337,10 @@ class MemoryService:
 
     async def add(
         self,
-        conversation_id: str,
         utterance: str,
         role: str,
         timestamp: datetime,
+        conversation_id: str = None,
         context_tags: Optional[List[str]] = None,
     ) -> str:
         """Convenient method to add a memory with automatic vector generation.

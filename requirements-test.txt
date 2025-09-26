@@ -12,3 +12,4 @@ pytest-mock>=3.14.0
 
 # Test utilities
 coverage>=7.0.0
+aiosqlite>=0.20.0
