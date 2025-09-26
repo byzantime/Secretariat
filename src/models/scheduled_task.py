@@ -70,42 +70,6 @@ class ScheduledTask(Base):
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_by_job_id(
-        session: AsyncSession, job_id: str
-    ) -> Optional["ScheduledTask"]:
-        """Get scheduled task by APScheduler job ID."""
-        result = await session.execute(
-            select(ScheduledTask).where(ScheduledTask.job_id == job_id)
-        )
-        return result.scalar_one_or_none()
-
-    @staticmethod
-    async def get_by_conversation_id(session: AsyncSession, conversation_id: UUID):
-        """Get all scheduled tasks for a conversation."""
-        result = await session.execute(
-            select(ScheduledTask).where(
-                ScheduledTask.conversation_id == conversation_id
-            )
-        )
-        return result.scalars().all()
-
-    @staticmethod
-    async def get_pending_tasks(session: AsyncSession):
-        """Get all pending tasks."""
-        result = await session.execute(
-            select(ScheduledTask).where(ScheduledTask.status == "pending")
-        )
-        return result.scalars().all()
-
-    @staticmethod
-    async def get_failed_tasks(session: AsyncSession):
-        """Get all failed tasks."""
-        result = await session.execute(
-            select(ScheduledTask).where(ScheduledTask.status == "failed")
-        )
-        return result.scalars().all()
-
-    @staticmethod
     async def create_task(
         session: AsyncSession,
         task_id: UUID,

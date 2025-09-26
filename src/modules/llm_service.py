@@ -16,7 +16,8 @@ from quart import current_app
 
 from src.tools.browser_tools import browse_web
 from src.tools.memory_tools import memory_search
-from src.tools.scheduling_tools import automations_search
+from src.tools.scheduling_tools import automations_list
+from src.tools.scheduling_tools import delete_automation
 from src.tools.scheduling_tools import setup_automation
 from src.tools.todo_tools import todo_read
 from src.tools.todo_tools import todo_write
@@ -108,8 +109,10 @@ class LLMService:
         self.agent.tool(todo_write)
         self.agent.tool(browse_web)
         self.agent.tool(memory_search)
+        # Automations
         self.agent.tool(setup_automation)
-        self.agent.tool(automations_search)
+        self.agent.tool(automations_list)
+        self.agent.tool(delete_automation)
 
     async def process_and_respond(self, conversation_id: UUID, user_message: str):
         """Process conversation history and generate a response."""

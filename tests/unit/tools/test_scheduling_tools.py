@@ -20,7 +20,6 @@ from src.models.schedule_config import IntervalSchedule
 from src.models.schedule_config import OnceSchedule
 from src.models.scheduled_task import ScheduledTask
 from src.modules.scheduling_service import SchedulingService
-from src.tools.scheduling_tools import automations_search
 from src.tools.scheduling_tools import setup_automation
 
 
@@ -170,9 +169,10 @@ class TestSchedulingToolsIntegration:
         ctx, conversation_id = mock_run_context
         future_time = datetime.now() + timedelta(hours=1)
 
-        with patch(
-            "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-        ), patch("src.modules.scheduling_service.current_app", mock_app_with_real_db):
+        with (
+            patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+            patch("src.modules.scheduling_service.current_app", mock_app_with_real_db),
+        ):
             result = await setup_automation(
                 ctx=ctx,
                 agent_instructions="Test reminder",
@@ -210,9 +210,10 @@ class TestSchedulingToolsIntegration:
         ctx, _ = mock_run_context
         past_time = datetime.now() - timedelta(hours=1)
 
-        with patch(
-            "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-        ), patch("src.modules.scheduling_service.current_app", mock_app_with_real_db):
+        with (
+            patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+            patch("src.modules.scheduling_service.current_app", mock_app_with_real_db),
+        ):
             # This should work at the tool level but fail at APScheduler level
             result = await setup_automation(
                 ctx=ctx,
@@ -239,9 +240,10 @@ class TestSchedulingToolsIntegration:
         """Test cron schedule creates real APScheduler CronTrigger."""
         ctx, _ = mock_run_context
 
-        with patch(
-            "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-        ), patch("src.modules.scheduling_service.current_app", mock_app_with_real_db):
+        with (
+            patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+            patch("src.modules.scheduling_service.current_app", mock_app_with_real_db),
+        ):
             result = await setup_automation(
                 ctx=ctx,
                 agent_instructions="Daily report",
@@ -275,10 +277,11 @@ class TestSchedulingToolsIntegration:
         ctx, _ = mock_run_context
 
         try:
-            with patch(
-                "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-            ), patch(
-                "src.modules.scheduling_service.current_app", mock_app_with_real_db
+            with (
+                patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+                patch(
+                    "src.modules.scheduling_service.current_app", mock_app_with_real_db
+                ),
             ):
                 result = await setup_automation(
                     ctx=ctx,
@@ -310,9 +313,10 @@ class TestSchedulingToolsIntegration:
         """Test interval schedule creates real APScheduler IntervalTrigger."""
         ctx, _ = mock_run_context
 
-        with patch(
-            "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-        ), patch("src.modules.scheduling_service.current_app", mock_app_with_real_db):
+        with (
+            patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+            patch("src.modules.scheduling_service.current_app", mock_app_with_real_db),
+        ):
             result = await setup_automation(
                 ctx=ctx,
                 agent_instructions="Hourly check",
@@ -347,16 +351,18 @@ class TestSchedulingToolsIntegration:
         # causing all intervals to be 0, which makes the job never run
 
         try:
-            with patch(
-                "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-            ), patch(
-                "src.modules.scheduling_service.current_app", mock_app_with_real_db
+            with (
+                patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+                patch(
+                    "src.modules.scheduling_service.current_app", mock_app_with_real_db
+                ),
             ):
                 result = await setup_automation(
                     ctx=ctx,
                     agent_instructions="Interval with potential zero bug",
                     schedule_config=IntervalSchedule(
-                        type="interval", minutes=30  # Only minutes specified
+                        type="interval",
+                        minutes=30,  # Only minutes specified
                     ),
                     interactive=False,
                 )
@@ -379,55 +385,6 @@ class TestSchedulingToolsIntegration:
 
         except Exception as e:
             pytest.fail(f"Interval scheduling failed with zero values bug: {e}")
-
-    # Test automations_search with Real Database
-
-    @pytest.mark.asyncio
-    async def test_automations_search_real_db_empty(self, mock_app_with_real_db):
-        """Test automations_search with real empty database."""
-        with patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db):
-            result = await automations_search({})
-
-        assert result == "No tasks are currently scheduled."
-
-    @pytest.mark.asyncio
-    async def test_automations_search_real_db_with_tasks(
-        self, mock_run_context, mock_app_with_real_db
-    ):
-        """Test automations_search with real database containing tasks."""
-        ctx, _ = mock_run_context
-
-        # Create some real tasks first
-        with patch(
-            "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-        ), patch("src.modules.scheduling_service.current_app", mock_app_with_real_db):
-            # Create a once task
-            await setup_automation(
-                ctx=ctx,
-                agent_instructions="Test once task",
-                schedule_config=OnceSchedule(
-                    type="once", when=(datetime.now() + timedelta(hours=1)).isoformat()
-                ),
-                interactive=True,
-            )
-
-            # Create a cron task
-            await setup_automation(
-                ctx=ctx,
-                agent_instructions="Test cron task",
-                schedule_config=CronSchedule(type="cron", hour=9, minute=0),
-                interactive=False,
-            )
-
-            # Now search for tasks
-            result = await automations_search({})
-
-        # Verify search results
-        assert "**Scheduled Tasks** (2 total):" in result
-        assert "**Test once task**" in result
-        assert "**Test cron task**" in result
-        assert "📱" in result  # Should show interactive flag for one task
-        assert "(pending)" in result
 
     # Test Database Task Operations
 
@@ -477,9 +434,10 @@ class TestSchedulingToolsIntegration:
         ctx = MagicMock(spec=RunContext)
         ctx.deps = {}  # No conversation_id
 
-        with patch(
-            "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-        ), patch("src.modules.scheduling_service.current_app", mock_app_with_real_db):
+        with (
+            patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+            patch("src.modules.scheduling_service.current_app", mock_app_with_real_db),
+        ):
             with pytest.raises(
                 ValueError, match="Conversation ID not found in context"
             ):
@@ -501,9 +459,10 @@ class TestSchedulingToolsIntegration:
         """Test that APScheduler jobs can be created, retrieved, and removed."""
         ctx, _ = mock_run_context
 
-        with patch(
-            "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-        ), patch("src.modules.scheduling_service.current_app", mock_app_with_real_db):
+        with (
+            patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+            patch("src.modules.scheduling_service.current_app", mock_app_with_real_db),
+        ):
             result = await setup_automation(
                 ctx=ctx,
                 agent_instructions="Job lifecycle test",
@@ -543,9 +502,10 @@ class TestSchedulingToolsIntegration:
             start_date="2024-01-01T00:00:00",
         )
 
-        with patch(
-            "src.tools.scheduling_tools.current_app", mock_app_with_real_db
-        ), patch("src.modules.scheduling_service.current_app", mock_app_with_real_db):
+        with (
+            patch("src.tools.scheduling_tools.current_app", mock_app_with_real_db),
+            patch("src.modules.scheduling_service.current_app", mock_app_with_real_db),
+        ):
             result = await setup_automation(
                 ctx=ctx,
                 agent_instructions="Config serialization test",

@@ -352,7 +352,7 @@ class TelegramChannel(CommunicationChannel):
             try:
                 await self.bot.send_message(
                     chat_id=chat_id,
-                    text=f"🔧 Using tool: *{tool_name}*",
+                    text=f"🔧 Used tool: *{tool_name}*",
                     parse_mode="Markdown",
                 )
             except Exception as e:

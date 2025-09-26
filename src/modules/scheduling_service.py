@@ -165,7 +165,7 @@ class SchedulingService:
                                     task.id,
                                     task.conversation_id,
                                     task.agent_instructions,
-                                    3,  # max_retries
+                                    3,
                                     task.interactive,
                                 ],
                                 name=(

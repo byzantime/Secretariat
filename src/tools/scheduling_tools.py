@@ -4,12 +4,12 @@ import uuid
 from typing import Any
 from typing import Dict
 
+from apscheduler.jobstores.base import JobLookupError
 from pydantic_ai import RunContext
 from quart import current_app
 
 from src.models.schedule_config import ScheduleConfig
 from src.models.schedule_config import schedule_config_to_dict
-from src.models.scheduled_task import ScheduledTask
 
 
 async def setup_automation(
@@ -139,8 +139,8 @@ async def setup_automation(
     }
 
 
-async def automations_search(ctx: RunContext[Dict[str, Any]]) -> str:
-    """Use this tool to search and view current automated tasks.
+async def automations_list(ctx: RunContext[Dict[str, Any]]) -> str:
+    """Use this tool to list current automated tasks.
 
     This tool should be used proactively to check what automated tasks are currently scheduled.
     You should make use of this tool when:
@@ -155,94 +155,73 @@ async def automations_search(ctx: RunContext[Dict[str, Any]]) -> str:
     - Use this information to understand what automations are active
     - If no tasks are scheduled, a simple message will be returned
     """
-    current_app.logger.info("🔧 TOOL CALLED: automations_search")
+    current_app.logger.info("🔧 TOOL CALLED: automations_list")
 
-    # Get database session and fetch pending tasks
-    database = current_app.extensions["database"]
-    async for session in database.get_session():
-        tasks = await ScheduledTask.get_pending_tasks(session)
+    # Get jobs from APScheduler
+    scheduling_service = current_app.extensions["scheduling"]
+    jobs = scheduling_service.scheduler.get_jobs()
 
-        if not tasks:
-            current_app.logger.info("No tasks are currently scheduled.")
-            return "No tasks are currently scheduled."
+    if not jobs:
+        current_app.logger.info("No jobs are currently scheduled.")
+        return "No jobs are currently scheduled."
 
-        # Format tasks as single line each, markdown list
-        output = f"**Scheduled Tasks** ({len(tasks)} total):\n\n"
-        for i, task in enumerate(tasks, 1):
-            # Access task attributes safely to avoid SQLAlchemy Column type issues
-            schedule_config = task.schedule_config or {}
-            schedule_type = schedule_config.get("type", "unknown")
-            schedule_when = schedule_config.get("when", "unknown")
+    current_app.logger.debug(f"Scheduled jobs: {jobs}")
 
-            if schedule_type == "cron":
-                # Build cron description from individual fields
-                cron_parts = []
-                if schedule_config.get("year"):
-                    cron_parts.append(f"year={schedule_config['year']}")
-                if schedule_config.get("month"):
-                    cron_parts.append(f"month={schedule_config['month']}")
-                if schedule_config.get("day"):
-                    cron_parts.append(f"day={schedule_config['day']}")
-                if schedule_config.get("week"):
-                    cron_parts.append(f"week={schedule_config['week']}")
-                if schedule_config.get("day_of_week"):
-                    cron_parts.append(f"day_of_week={schedule_config['day_of_week']}")
-                if schedule_config.get("hour"):
-                    cron_parts.append(f"hour={schedule_config['hour']}")
-                if schedule_config.get("minute"):
-                    cron_parts.append(f"minute={schedule_config['minute']}")
-                if schedule_config.get("second"):
-                    cron_parts.append(f"second={schedule_config['second']}")
-                schedule_desc = (
-                    f"cron({', '.join(cron_parts)})" if cron_parts else "cron(unknown)"
-                )
-            elif schedule_type == "interval":
-                # Build interval description
-                parts = []
-                if schedule_config.get("weeks"):
-                    parts.append(f"{schedule_config['weeks']}w")
-                if schedule_config.get("days"):
-                    parts.append(f"{schedule_config['days']}d")
-                if schedule_config.get("hours"):
-                    parts.append(f"{schedule_config['hours']}h")
-                if schedule_config.get("minutes"):
-                    parts.append(f"{schedule_config['minutes']}m")
-                if schedule_config.get("seconds"):
-                    parts.append(f"{schedule_config['seconds']}s")
-                interval_desc = " ".join(parts) if parts else "unknown interval"
-                start_date = schedule_config.get("start_date", "now")
-                schedule_desc = f"every {interval_desc} from {start_date}"
-            else:
-                schedule_desc = f"{schedule_when}"
+    # Format jobs as CSV with headers
+    output = "job_id,next_run_time,schedule_type,description\n"
 
-            # Format task description (truncate if too long) - handle safely
-            agent_instructions = task.agent_instructions
-            description = "Unknown task"
-            if agent_instructions is not None:
-                description = str(agent_instructions)
-                if len(description) > 60:
-                    description = description[:57] + "..."
+    for job in jobs:
+        # Extract task ID from job ID (format: "agent_task_{task_id}")
+        task_id = (
+            job.id.replace("agent_task_", "")
+            if job.id.startswith("agent_task_")
+            else job.id
+        )
 
-            # Get status and interactive flag safely using string conversion
-            status = "unknown"
-            if task.status is not None:
-                status = str(task.status)
+        # Get next run time
+        next_run_time = str(job.next_run_time) if job.next_run_time else "N/A"
 
-            # Use string conversion for boolean check to handle SQLAlchemy Column types
-            interactive = False
-            if task.interactive is not None:
-                interactive = str(task.interactive).lower() == "true"
+        # Determine schedule type from trigger
+        schedule_type = "unknown"
+        if hasattr(job.trigger, "__class__"):
+            trigger_name = job.trigger.__class__.__name__
+            if trigger_name == "DateTrigger":
+                schedule_type = "once"
+            elif trigger_name == "CronTrigger":
+                schedule_type = "cron"
+            elif trigger_name == "IntervalTrigger":
+                schedule_type = "interval"
 
-            # Single line format: number. description [schedule] (status)
-            interactive_flag = " 📱" if interactive else ""
-            output += (
-                f"{i}. **{description}** {schedule_desc} →"
-                f" ({status}){interactive_flag}\n"
-            )
+        # Get description from job name, remove the "Agent execution: " prefix
+        description = job.name or "Unknown task"
+        if description.startswith("Agent execution: "):
+            description = description[17:]  # Remove "Agent execution: " prefix
+        description = description.replace(",", ";")  # Escape commas for CSV
 
-        # Important: return inside the session context to ensure proper cleanup
-        current_app.logger.info(output)
-        return output.strip()
+        output += f"{task_id},{next_run_time},{schedule_type},{description}\n"
 
-    # Fallback return outside the async context (should not reach here)
-    return "No tasks are currently scheduled."
+    current_app.logger.info(output)
+    return output.strip()
+
+
+async def delete_automation(ctx: RunContext[Dict[str, Any]], task_id: str) -> str:
+    """Delete an automated task by its task ID.
+
+    Use this tool to delete/cancel scheduled automated tasks.  Use the
+    automations_list tool to get the task ID for a given task.
+
+    Args:
+        task_id: The UUID string identifier of the task to delete. This can be obtained
+                from the automations_list tool output (first column in CSV).
+
+    Examples:
+        # Delete a specific automation by its ID
+        delete_automation(task_id="123e4567-e89b-12d3-a456-426614174000")
+    """
+    current_app.logger.info(f"🔧 TOOL CALLED: delete_automation with task_id={task_id}")
+    scheduling_service = current_app.extensions["scheduling"]
+    try:
+        scheduling_service.scheduler.remove_job(f"agent_task_{task_id}")
+        return f"Task with ID {task_id} deleted successfully"
+    except JobLookupError:
+        return f"Task with ID {task_id} not found or could not be deleted"
