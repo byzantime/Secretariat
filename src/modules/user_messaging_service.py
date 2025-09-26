@@ -1,6 +1,7 @@
 """Communication service for handling multi-channel user messaging."""
 
 import asyncio
+import html
 import secrets
 from abc import ABC
 from abc import abstractmethod
@@ -336,10 +337,19 @@ class TelegramChannel(CommunicationChannel):
                     chat_id=chat_id, text=content, parse_mode="Markdown"
                 )
             except Exception as e:
-                current_app.logger.error(
-                    f"Failed to send completion to {chat_id}: {e}", exc_info=True
-                )
-                success = False
+                # Fallback to escaped HTML entities if Markdown parsing fails
+                html.escape(content)
+                try:
+                    await self.bot.send_message(
+                        chat_id=chat_id, text=content, parse_mode="HTML"
+                    )
+                except Exception as fallback_e:
+                    current_app.logger.error(
+                        f"Failed to send completion to {chat_id}: {e}, fallback failed:"
+                        f" {fallback_e}",
+                        exc_info=True,
+                    )
+                    success = False
         return success
 
     async def send_tool_notification(self, tool_name: str, tool_args: dict) -> bool:

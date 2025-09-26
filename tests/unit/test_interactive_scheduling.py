@@ -23,9 +23,7 @@ async def test_interactive_scheduling(app, conversation_manager, mock_conversati
 
     # Mock the schedule_agent_execution to return expected result
     test_task_id = uuid.uuid4()
-    app.extensions["scheduling"].schedule_agent_execution.return_value = (
-        f"agent_task_{test_task_id}"
-    )
+    app.extensions["scheduling"].schedule_agent_execution.return_value = test_task_id
 
     # Mock ScheduledTask.get_by_id to return a mock task with interactive=True
     mock_task = MagicMock()
@@ -68,9 +66,7 @@ async def test_non_interactive_scheduling(
 
     # Mock the schedule_agent_execution to return expected result
     test_task_id = uuid.uuid4()
-    app.extensions["scheduling"].schedule_agent_execution.return_value = (
-        f"agent_task_{test_task_id}"
-    )
+    app.extensions["scheduling"].schedule_agent_execution.return_value = test_task_id
 
     # Mock ScheduledTask.get_by_id to return a mock task with interactive=False
     mock_task = MagicMock()
@@ -114,7 +110,7 @@ async def test_scheduling_service_parameters(
     conversation_id = mock_conversation_id
 
     # Set up the mock to return the expected job_id
-    scheduling_service.schedule_agent_execution.return_value = f"agent_task_{task_id}"
+    scheduling_service.schedule_agent_execution.return_value = task_id
 
     # Mock ScheduledTask.get_by_id to return a mock task with interactive=True
     mock_task = MagicMock()
@@ -135,7 +131,7 @@ async def test_scheduling_service_parameters(
             interactive=True,
         )
 
-        assert job_id == f"agent_task_{task_id}"
+        assert job_id == task_id
 
         # Verify task was stored with interactive=True
         async with app.extensions["database"].session_factory() as session:
