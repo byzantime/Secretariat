@@ -103,8 +103,6 @@ async def setup_automation(
     """
     # Get conversation ID from context
     conversation_id = ctx.deps.get("conversation_id")
-    if not conversation_id:
-        raise ValueError("Conversation ID not found in context")
 
     # Generate unique task ID
     task_id = uuid.uuid4()
@@ -157,7 +155,7 @@ async def automations_list(ctx: RunContext[Dict[str, Any]]) -> str:
     """
     current_app.logger.info("🔧 TOOL CALLED: automations_list")
 
-    # Get jobs from APScheduler
+    # Get jobs from APScheduler and capture the output
     scheduling_service = current_app.extensions["scheduling"]
     jobs = scheduling_service.scheduler.get_jobs()
 
@@ -165,43 +163,14 @@ async def automations_list(ctx: RunContext[Dict[str, Any]]) -> str:
         current_app.logger.info("No jobs are currently scheduled.")
         return "No jobs are currently scheduled."
 
-    current_app.logger.debug(f"Scheduled jobs: {jobs}")
-
-    # Format jobs as CSV with headers
-    output = "job_id,next_run_time,schedule_type,description\n"
-
+    output = []
     for job in jobs:
-        # Extract task ID from job ID (format: "agent_task_{task_id}")
-        task_id = (
-            job.id.replace("agent_task_", "")
-            if job.id.startswith("agent_task_")
-            else job.id
+        output.append(
+            f"{job.id} - {job.name}, trigger: {job.trigger}, next run at:"
+            f" {job.next_run_time}"
         )
-
-        # Get next run time
-        next_run_time = str(job.next_run_time) if job.next_run_time else "N/A"
-
-        # Determine schedule type from trigger
-        schedule_type = "unknown"
-        if hasattr(job.trigger, "__class__"):
-            trigger_name = job.trigger.__class__.__name__
-            if trigger_name == "DateTrigger":
-                schedule_type = "once"
-            elif trigger_name == "CronTrigger":
-                schedule_type = "cron"
-            elif trigger_name == "IntervalTrigger":
-                schedule_type = "interval"
-
-        # Get description from job name, remove the "Agent execution: " prefix
-        description = job.name or "Unknown task"
-        if description.startswith("Agent execution: "):
-            description = description[17:]  # Remove "Agent execution: " prefix
-        description = description.replace(",", ";")  # Escape commas for CSV
-
-        output += f"{task_id},{next_run_time},{schedule_type},{description}\n"
-
-    current_app.logger.info(output)
-    return output.strip()
+    current_app.logger.debug("\n".join(output))
+    return "\n".join(output)
 
 
 async def delete_automation(ctx: RunContext[Dict[str, Any]], task_id: str) -> str:
@@ -221,7 +190,7 @@ async def delete_automation(ctx: RunContext[Dict[str, Any]], task_id: str) -> st
     current_app.logger.info(f"🔧 TOOL CALLED: delete_automation with task_id={task_id}")
     scheduling_service = current_app.extensions["scheduling"]
     try:
-        scheduling_service.scheduler.remove_job(f"agent_task_{task_id}")
+        scheduling_service.scheduler.remove_job(task_id)
         return f"Task with ID {task_id} deleted successfully"
     except JobLookupError:
         return f"Task with ID {task_id} not found or could not be deleted"

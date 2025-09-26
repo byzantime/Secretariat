@@ -169,8 +169,7 @@ class SchedulingService:
                                     task.interactive,
                                 ],
                                 name=(
-                                    "Agent execution:"
-                                    f" {task.agent_instructions[:50]}..."
+                                    f"{task.job_id}: {task.agent_instructions[:50]}..."
                                 ),
                                 replace_existing=True,
                             )
@@ -236,11 +235,11 @@ class SchedulingService:
             )
         elif schedule_config["type"] == "interval":
             trigger = IntervalTrigger(
-                weeks=schedule_config.get("weeks") or 0,
-                days=schedule_config.get("days") or 0,
-                hours=schedule_config.get("hours") or 0,
-                minutes=schedule_config.get("minutes") or 0,
-                seconds=schedule_config.get("seconds") or 0,
+                weeks=schedule_config.get("weeks"),
+                days=schedule_config.get("days"),
+                hours=schedule_config.get("hours"),
+                minutes=schedule_config.get("minutes"),
+                seconds=schedule_config.get("seconds"),
                 start_date=schedule_config.get("start_date"),
                 end_date=schedule_config.get("end_date"),
             )
@@ -248,12 +247,10 @@ class SchedulingService:
             raise ValueError(f"Unsupported schedule type: {schedule_config['type']}")
 
         # Create job
-        job_id = f"agent_task_{task_id}"
-
         self.scheduler.add_job(
             func=SchedulingService._execute_scheduled_agent,
             trigger=trigger,
-            id=job_id,
+            id=str(task_id),
             args=[
                 task_id,
                 conversation_id,
@@ -261,7 +258,7 @@ class SchedulingService:
                 max_retries,
                 interactive,
             ],
-            name=f"Agent execution: {agent_instructions[:50]}...",
+            name=f"{agent_instructions[:50]}...",
             replace_existing=True,
         )
 
@@ -270,15 +267,15 @@ class SchedulingService:
             await ScheduledTask.create_task(
                 session=session,
                 task_id=task_id,
-                job_id=job_id,
+                job_id=str(task_id),
                 conversation_id=conversation_id,
                 agent_instructions=agent_instructions,
                 schedule_config=schedule_config,
                 interactive=interactive,
             )
 
-        current_app.logger.info(f"Scheduled agent task {task_id} with job ID {job_id}")
-        return job_id
+        current_app.logger.info(f"Scheduled agent task {task_id} with job ID {task_id}")
+        return task_id
 
     @staticmethod
     async def _execute_scheduled_agent(
