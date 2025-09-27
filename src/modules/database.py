@@ -47,34 +47,17 @@ class Database:
                 f"Debug mode: SQLAlchemy echo={should_echo} (based on logger level)"
             )
 
-        # Create async engine with robust connection pool configuration
+        # Create async engine for SQLite
         self.engine = create_async_engine(
             database_url,
             echo=should_echo,  # Respect the logger configuration
-            # Connection pool configuration for reliability and performance
-            pool_size=20,  # Core pool size (default: 5)
-            max_overflow=30,  # Additional connections beyond pool_size (default: 10)
-            pool_timeout=30,  # Timeout waiting for connection (default: 30)
-            pool_recycle=14400,  # 4 hours instead of 1 hour (default: -1)
-            pool_pre_ping=True,  # Validate connections on checkout
-            # AsyncPG-specific connection arguments
-            connect_args={
-                "server_settings": {
-                    "jit": "off",  # Disable JIT for faster connection setup
-                },
-                "command_timeout": 60,  # Query timeout (60 seconds)
-                "statement_cache_size": 1000,  # Cache prepared statements
-            },
         )
 
-        # Create sync engine for APScheduler (use psycopg2 driver)
-        sync_database_url = database_url.replace("+asyncpg", "+psycopg2")
+        # Create sync engine for APScheduler (use sqlite driver)
+        sync_database_url = database_url.replace("+aiosqlite", "")
         self.sync_engine = create_engine(
             sync_database_url,
             echo=should_echo,
-            pool_size=5,
-            max_overflow=10,
-            pool_pre_ping=True,
         )
 
         # Create session factory

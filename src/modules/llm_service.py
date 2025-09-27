@@ -3,7 +3,6 @@
 import os
 import secrets
 from datetime import datetime
-from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from pydantic_ai import Agent
@@ -114,7 +113,7 @@ class LLMService:
         self.agent.tool(automations_list)
         self.agent.tool(delete_automation)
 
-    async def process_and_respond(self, conversation_id: UUID, user_message: str):
+    async def process_and_respond(self, conversation_id: str, user_message: str):
         """Process conversation history and generate a response."""
         conversation = await self._get_conversation(conversation_id)
 
@@ -296,7 +295,7 @@ class LLMService:
         )
         current_app.logger.info("LLM error handled - no response generated")
 
-    async def _get_conversation(self, conversation_id: UUID):
+    async def _get_conversation(self, conversation_id: str):
         """Get conversation by ID."""
         conversation_manager = current_app.extensions["conversation_manager"]
         return await conversation_manager.get_conversation(conversation_id)

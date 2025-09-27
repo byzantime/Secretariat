@@ -10,6 +10,12 @@ Install dependencies:
 uv pip install -r requirements.txt
 ```
 
+Set up the database:
+
+```bash
+alembic upgrade head
+```
+
 Run the application:
 
 ```bash
@@ -105,6 +111,6 @@ The memory system will automatically create the required collection (`memories`)
 
 ```bash
 # First add the new dependency to requirements.in, then:
-uv pip compile requirements.in --output-file requirements.txt --index-strategy unsafe-best-match
+uv pip compile requirements.in --output-file requirements.txt
 uv pip install -r requirements.txt
 ```

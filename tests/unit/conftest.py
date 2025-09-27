@@ -75,4 +75,4 @@ def mock_conversation_id():
     """Mock conversation ID."""
     import uuid
 
-    return uuid.uuid4()
+    return str(uuid.uuid4())

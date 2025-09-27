@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from typing import Dict
 from typing import List
 from typing import Optional
-from uuid import UUID
 from uuid import uuid4
 
 from pydantic_ai.messages import ModelRequest
@@ -26,7 +25,7 @@ if TYPE_CHECKING:
 class Conversation:
     """Simplified conversation class for LLM interactions."""
 
-    id: UUID = field(default_factory=uuid4)
+    id: str = field(default_factory=uuid4)
     user_id: Optional[int] = None
     pydantic_messages: List["ModelMessage"] = field(default_factory=list)
     processing_task: Optional[asyncio.Task] = None
@@ -102,7 +101,7 @@ class ConversationManager:
 
     def __init__(self, app=None):
         """Initialize the ConversationManager."""
-        self.conversations: Dict[UUID, Conversation] = {}
+        self.conversations: Dict[str, Conversation] = {}
         if app is not None:
             self.init_app(app)
 
@@ -122,11 +121,11 @@ class ConversationManager:
         self.conversations[conversation.id] = conversation
         return conversation
 
-    async def get_conversation(self, conversation_id: UUID) -> Optional[Conversation]:
+    async def get_conversation(self, conversation_id: str) -> Optional[Conversation]:
         """Get a conversation by ID."""
         return self.conversations.get(conversation_id)
 
-    async def end_conversation(self, conversation_id: UUID):
+    async def end_conversation(self, conversation_id: str):
         """End a conversation."""
         conversation = self.conversations.get(conversation_id)
         if conversation and not conversation.ended_at:

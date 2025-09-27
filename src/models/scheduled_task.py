@@ -4,8 +4,8 @@ from datetime import datetime
 from typing import Any
 from typing import Dict
 from typing import Optional
-from uuid import UUID
 
+from sqlalchemy import JSON
 from sqlalchemy import Boolean
 from sqlalchemy import Column
 from sqlalchemy import DateTime
@@ -13,8 +13,6 @@ from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import func
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -26,12 +24,12 @@ class ScheduledTask(Base):
 
     __tablename__ = "scheduled_tasks"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True)
+    id = Column(String(36), primary_key=True)
     job_id = Column(String(255), unique=True, nullable=False, index=True)
-    conversation_id = Column(PGUUID(as_uuid=True), nullable=False, index=True)
+    conversation_id = Column(String(36), nullable=False, index=True)
     agent_instructions = Column(Text, nullable=False)
     schedule_config = Column(
-        JSONB, nullable=False
+        JSON, nullable=False
     )  # {type: "once"|"cron"|"interval", when: "..."}
     status = Column(
         String(50), nullable=False, default="pending"
@@ -41,7 +39,7 @@ class ScheduledTask(Base):
 
     # Task configuration
     interactive = Column(
-        Boolean, nullable=False, server_default="true"
+        Boolean, nullable=True, default=True
     )  # Whether task supports user interaction/responses
 
     # Timestamps
@@ -61,29 +59,29 @@ class ScheduledTask(Base):
 
     @staticmethod
     async def get_by_id(
-        session: AsyncSession, task_id: UUID
+        session: AsyncSession, task_id: str
     ) -> Optional["ScheduledTask"]:
         """Get scheduled task by ID."""
         result = await session.execute(
-            select(ScheduledTask).where(ScheduledTask.id == task_id)
+            select(ScheduledTask).where(ScheduledTask.id == str(task_id))
         )
         return result.scalar_one_or_none()
 
     @staticmethod
     async def create_task(
         session: AsyncSession,
-        task_id: UUID,
+        task_id: str,
         job_id: str,
-        conversation_id: UUID,
+        conversation_id: str,
         agent_instructions: str,
         schedule_config: Dict[str, Any],
         interactive: bool = True,
     ) -> "ScheduledTask":
         """Create a new scheduled task."""
         task = ScheduledTask(
-            id=task_id,
+            id=str(task_id),
             job_id=job_id,
-            conversation_id=conversation_id,
+            conversation_id=str(conversation_id),
             agent_instructions=agent_instructions,
             schedule_config=schedule_config,
             interactive=interactive,
