@@ -12,21 +12,21 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 
 class SemanticVectorGenerator:
     """Generates semantic embeddings from text content."""
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, model_name: str = "BAAI/bge-small-en-v1.5"):
         """Initialise semantic vector generator.
 
         Args:
-            model_name: Name of the sentence transformer model to use.
-                       Default is all-MiniLM-L6-v2 (384 dimensions).
+            model_name: Name of the FastEmbed model to use.
+                       Default is BAAI/bge-small-en-v1.5 (384 dimensions).
         """
-        self.model = SentenceTransformer(model_name)
-        self.vector_size = self.model.get_sentence_embedding_dimension()
+        self.model = TextEmbedding(model_name=model_name)
+        self.vector_size = 384  # FastEmbed default model dimension
 
     def generate(self, text: str) -> List[float]:
         """Generate semantic embedding for given text.
@@ -41,8 +41,9 @@ class SemanticVectorGenerator:
             # Return zero vector for empty text
             return [0.0] * self.vector_size
 
-        embedding = self.model.encode([text.strip()])[0]
-        return embedding.tolist()
+        # FastEmbed returns iterator, get first embedding and convert to list
+        embeddings = list(self.model.embed([text.strip()]))
+        return embeddings[0].tolist()
 
 
 class TemporalVectorGenerator:
@@ -209,14 +210,14 @@ class VectorGenerator:
 
     def __init__(
         self,
-        semantic_model: str = "all-MiniLM-L6-v2",
+        semantic_model: str = "BAAI/bge-small-en-v1.5",
         temporal_size: int = 20,
         contextual_size: int = 100,
     ):
         """Initialise combined vector generator.
 
         Args:
-            semantic_model: Sentence transformer model name
+            semantic_model: FastEmbed model name
             temporal_size: Size of temporal vectors
             contextual_size: Size of contextual vectors
         """
