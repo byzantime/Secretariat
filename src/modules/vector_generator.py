@@ -6,13 +6,20 @@ for creating meaningful embeddings from text content and metadata.
 """
 
 import math
+import re
 import time
+from collections import Counter
 from datetime import datetime
 from typing import Dict
 from typing import List
 from typing import Optional
 
-from fastembed import TextEmbedding
+try:
+    from fastembed import TextEmbedding
+
+    FASTEMBED_AVAILABLE = True
+except ImportError:
+    FASTEMBED_AVAILABLE = False
 
 
 class SemanticVectorGenerator:
@@ -25,8 +32,33 @@ class SemanticVectorGenerator:
             model_name: Name of the FastEmbed model to use.
                        Default is BAAI/bge-small-en-v1.5 (384 dimensions).
         """
-        self.model = TextEmbedding(model_name=model_name)
-        self.vector_size = 384  # FastEmbed default model dimension
+        self.vector_size = 384  # Standard embedding dimension
+
+        if FASTEMBED_AVAILABLE:
+            self.model = TextEmbedding(model_name=model_name)
+            self.use_fastembed = True
+        else:
+            self.model = None
+            self.use_fastembed = False
+
+    def _fallback_embedding(self, text: str) -> List[float]:
+        """Generate word frequency embedding as fallback when FastEmbed unavailable."""
+        if not text or not text.strip():
+            return [0.0] * self.vector_size
+
+        # Simple tokenization
+        words = re.findall(r"\w+", text.lower())
+        word_counts = Counter(words)
+
+        # Map words to dimensions via hash
+        embedding = [0.0] * self.vector_size
+        for word, count in word_counts.items():
+            idx = hash(word) % self.vector_size
+            embedding[idx] += count
+
+        # L2 normalize
+        norm = sum(x * x for x in embedding) ** 0.5
+        return [x / norm if norm > 0 else 0.0 for x in embedding]
 
     def generate(self, text: str) -> List[float]:
         """Generate semantic embedding for given text.
@@ -41,9 +73,13 @@ class SemanticVectorGenerator:
             # Return zero vector for empty text
             return [0.0] * self.vector_size
 
-        # FastEmbed returns iterator, get first embedding and convert to list
-        embeddings = list(self.model.embed([text.strip()]))
-        return embeddings[0].tolist()
+        if self.use_fastembed:
+            # FastEmbed returns iterator, get first embedding and convert to list
+            embeddings = list(self.model.embed([text.strip()]))
+            return embeddings[0].tolist()
+        else:
+            # Use fallback word frequency embedding
+            return self._fallback_embedding(text)
 
 
 class TemporalVectorGenerator:
