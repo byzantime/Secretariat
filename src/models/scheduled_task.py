@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Any
 from typing import Dict
 from typing import Optional
-from uuid import UUID
 
 from sqlalchemy import JSON
 from sqlalchemy import Boolean
@@ -60,29 +59,29 @@ class ScheduledTask(Base):
 
     @staticmethod
     async def get_by_id(
-        session: AsyncSession, task_id: UUID
+        session: AsyncSession, task_id: str
     ) -> Optional["ScheduledTask"]:
         """Get scheduled task by ID."""
         result = await session.execute(
-            select(ScheduledTask).where(ScheduledTask.id == task_id)
+            select(ScheduledTask).where(ScheduledTask.id == str(task_id))
         )
         return result.scalar_one_or_none()
 
     @staticmethod
     async def create_task(
         session: AsyncSession,
-        task_id: UUID,
+        task_id: str,
         job_id: str,
-        conversation_id: UUID,
+        conversation_id: str,
         agent_instructions: str,
         schedule_config: Dict[str, Any],
         interactive: bool = True,
     ) -> "ScheduledTask":
         """Create a new scheduled task."""
         task = ScheduledTask(
-            id=task_id,
+            id=str(task_id),
             job_id=job_id,
-            conversation_id=conversation_id,
+            conversation_id=str(conversation_id),
             agent_instructions=agent_instructions,
             schedule_config=schedule_config,
             interactive=interactive,

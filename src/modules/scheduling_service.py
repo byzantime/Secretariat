@@ -3,7 +3,6 @@
 from datetime import datetime
 from typing import Any
 from typing import Dict
-from uuid import UUID
 
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -191,8 +190,8 @@ class SchedulingService:
 
     async def schedule_agent_execution(
         self,
-        task_id: UUID,
-        conversation_id: UUID,
+        task_id: str,
+        conversation_id: str,
         agent_instructions: str,
         schedule_config: Dict[str, Any],
         interactive: bool = True,
@@ -266,9 +265,9 @@ class SchedulingService:
         async with self.db.session_factory() as session:
             await ScheduledTask.create_task(
                 session=session,
-                task_id=task_id,
+                task_id=str(task_id),
                 job_id=str(task_id),
-                conversation_id=conversation_id,
+                conversation_id=str(conversation_id),
                 agent_instructions=agent_instructions,
                 schedule_config=schedule_config,
                 interactive=interactive,
@@ -279,8 +278,8 @@ class SchedulingService:
 
     @staticmethod
     async def _execute_scheduled_agent(
-        task_id: UUID,
-        conversation_id: UUID,
+        task_id: str,
+        conversation_id: str,
         agent_instructions: str,
         max_retries: int,
         interactive: bool,
@@ -292,7 +291,7 @@ class SchedulingService:
             # Update task status to running
             db = current_app.extensions["database"]
             async with db.session_factory() as session:
-                task = await ScheduledTask.get_by_id(session, task_id)
+                task = await ScheduledTask.get_by_id(session, str(task_id))
                 if task is not None:
                     await task.update_status(
                         session, "running", last_run=datetime.now()
@@ -326,7 +325,7 @@ class SchedulingService:
 
             # Update task status to completed
             async with db.session_factory() as session:
-                task = await ScheduledTask.get_by_id(session, task_id)
+                task = await ScheduledTask.get_by_id(session, str(task_id))
                 if task:
                     await task.update_status(session, "completed")
 
@@ -348,7 +347,7 @@ class SchedulingService:
 
             # Update task status and handle retries
             async with db.session_factory() as session:
-                task = await ScheduledTask.get_by_id(session, task_id)
+                task = await ScheduledTask.get_by_id(session, str(task_id))
                 if task is not None:
                     failure_count = task.failure_count or 0
                     if failure_count >= max_retries:
