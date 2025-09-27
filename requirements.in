@@ -14,7 +14,7 @@ quart-flask-patch
 sqlalchemy[asyncio]
 sentry-sdk
 python-telegram-bot[webhooks]
-sentence-transformers
+fastembed
 numpy
 qdrant-client
 vaderSentiment
