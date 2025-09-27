@@ -13,13 +13,9 @@ class Config:
     SENTRY_DSN = os.environ.get("SENTRY_DSN")
     QUART_AUTH_COOKIE_SECURE = not DEBUG  # Allow insecure cookies in debug mode
 
-    # Database URL - prefer individual components if available, fallback to DATABASE_URL
-    DATABASE_HOST = os.environ.get("DATABASE_HOST", "localhost")
-    DATABASE_PORT = os.environ.get("DATABASE_PORT", "5432")
-    DATABASE_USER = os.environ.get("DATABASE_USER", "postgres")
-    DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD", "")
-    DATABASE_NAME = os.environ.get("DATABASE_NAME", "src")
-    DATABASE_URL = f"postgresql+asyncpg://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
+    # Database URL - SQLite database in project root
+    DATABASE_NAME = os.environ.get("DATABASE_NAME", "secretariat")
+    DATABASE_URL = f"sqlite+aiosqlite:///./{DATABASE_NAME}.db"
 
     # Anthropic Configuration
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")

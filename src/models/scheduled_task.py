@@ -6,6 +6,7 @@ from typing import Dict
 from typing import Optional
 from uuid import UUID
 
+from sqlalchemy import JSON
 from sqlalchemy import Boolean
 from sqlalchemy import Column
 from sqlalchemy import DateTime
@@ -13,8 +14,6 @@ from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import func
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -26,12 +25,12 @@ class ScheduledTask(Base):
 
     __tablename__ = "scheduled_tasks"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True)
+    id = Column(String(36), primary_key=True)
     job_id = Column(String(255), unique=True, nullable=False, index=True)
-    conversation_id = Column(PGUUID(as_uuid=True), nullable=False, index=True)
+    conversation_id = Column(String(36), nullable=False, index=True)
     agent_instructions = Column(Text, nullable=False)
     schedule_config = Column(
-        JSONB, nullable=False
+        JSON, nullable=False
     )  # {type: "once"|"cron"|"interval", when: "..."}
     status = Column(
         String(50), nullable=False, default="pending"
@@ -41,7 +40,7 @@ class ScheduledTask(Base):
 
     # Task configuration
     interactive = Column(
-        Boolean, nullable=False, server_default="true"
+        Boolean, nullable=True, default=True
     )  # Whether task supports user interaction/responses
 
     # Timestamps

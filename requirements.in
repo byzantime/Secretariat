@@ -2,10 +2,9 @@ alembic
 apscheduler
 browser-use
 pydantic-ai-slim[duckduckgo]
-asyncpg
+aiosqlite
 httpx
 jinja-ui-kit @ git+https://github.com/byzantime/jinja-ui-kit.git
-psycopg2-binary
 python-dotenv
 quart-assets
 quart-auth

@@ -10,6 +10,12 @@ Install dependencies:
 uv pip install -r requirements.txt
 ```
 
+Set up the database:
+
+```bash
+alembic upgrade head
+```
+
 Run the application:
 
 ```bash

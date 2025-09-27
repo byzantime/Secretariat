@@ -28,7 +28,7 @@ class SchedulingService:
         """Initialize scheduling service with Quart app."""
         self.db = app.extensions["database"]
 
-        # Configure APScheduler with PostgreSQL job store using sync engine
+        # Configure APScheduler with SQLite job store using sync engine
         jobstores = {
             "default": SQLAlchemyJobStore(
                 engine=self.db.sync_engine,  # Use sync engine for APScheduler
