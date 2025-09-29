@@ -13,6 +13,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
 
+from src.providers.zen_provider import ZenProvider
 from src.tools.browser_tools import browse_web
 from src.tools.memory_tools import memory_search
 from src.tools.scheduling_tools import automations_list
@@ -34,6 +35,20 @@ class LLMService:
 
     def _create_model(self, app):
         """Create model based on provider configuration."""
+        provider_type = app.config["LLM_PROVIDER"]
+
+        if provider_type == "zen":
+            return self._create_zen_model(app)
+        elif provider_type == "openrouter":
+            return self._create_openrouter_model(app)
+        else:
+            raise ValueError(
+                f"Unsupported LLM provider: {provider_type}. "
+                "Supported providers: 'openrouter', 'zen'"
+            )
+
+    def _create_openrouter_model(self, app):
+        """Create OpenRouter model."""
         api_key = app.config["OPENROUTER_API_KEY"]
         model_name = app.config["OPENROUTER_MODEL"]
 
@@ -43,6 +58,27 @@ class LLMService:
             )
 
         provider_instance = OpenRouterProvider(api_key=api_key)
+        return OpenAIChatModel(
+            model_name=model_name,
+            provider=provider_instance,
+        )
+
+    def _create_zen_model(self, app):
+        """Create OpenCode Zen model."""
+        api_key = app.config.get("ZEN_API_KEY")
+        model_name = app.config.get("ZEN_MODEL")
+
+        if not api_key:
+            raise ValueError("ZEN_API_KEY is required when using OpenCode Zen provider")
+
+        if not model_name:
+            raise ValueError("ZEN_MODEL is required when using OpenCode Zen provider")
+
+        # Create provider instance using the factory method
+        provider_instance = ZenProvider.create_provider(
+            api_key=api_key, model_name=model_name
+        )
+
         return OpenAIChatModel(
             model_name=model_name,
             provider=provider_instance,

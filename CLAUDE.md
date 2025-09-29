@@ -124,7 +124,6 @@ Extensions in `src/extensions.py` must be initialized in dependency order:
 
 Required:
 - `SECRET_KEY`: Flask session encryption
-- `ANTHROPIC_API_KEY`: Claude API access
 - `DATABASE_*`: SQLite connection details
 
 Optional:
