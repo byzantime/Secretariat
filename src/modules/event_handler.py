@@ -55,7 +55,6 @@ class EventHandler:
             org: Organization name for the event (used for filtering subscribers)
         """
         data = data or {}
-        tasks = []
 
         for callback, subscriber_org in self.subscribers[event]:
             # Only call callback if:
@@ -63,12 +62,13 @@ class EventHandler:
             # 2. Event has org and subscriber is listening for that org
             if subscriber_org is None or subscriber_org == org:
                 try:
-                    tasks.append(asyncio.create_task(callback(data)))
+                    task = asyncio.create_task(callback(data))
+                    task.add_done_callback(self._handle_task_exception)
                 except Exception as e:
                     # Get full traceback
                     tb = traceback.format_exc()
                     error_msg = (
-                        f"Error in event {event} callback: {str(e)}\n"
+                        f"Error creating task for event {event} callback: {str(e)}\n"
                         f"Data: {data}\n"
                         f"Traceback:\n{tb}"
                     )
@@ -77,5 +77,17 @@ class EventHandler:
                     if isinstance(e, (KeyboardInterrupt, SystemExit)):
                         raise
 
-        if tasks:
-            await asyncio.gather(*tasks)
+    def _handle_task_exception(self, task: asyncio.Task):
+        """Handle exceptions from background event handler tasks."""
+        try:
+            task.result()  # This will raise if the task failed
+        except asyncio.CancelledError:
+            pass  # Task was cancelled, ignore
+        except Exception as e:
+            # Get full traceback
+            tb = traceback.format_exc()
+            error_msg = (
+                f"Exception in background event handler task: {str(e)}\n"
+                f"Traceback:\n{tb}"
+            )
+            current_app.logger.error(error_msg)
