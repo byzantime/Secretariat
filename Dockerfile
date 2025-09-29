@@ -1,6 +1,10 @@
 # Use an official Python runtime as a parent image
 FROM debian:testing-slim
 
+# Accept build args for multi-arch support
+ARG TARGETARCH
+ARG TARGETVARIANT
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -18,14 +22,23 @@ RUN wget -qO- https://astral.sh/uv/install.sh | sh \
     && mv /root/.local/bin/uv /usr/local/bin/uv \
     && chmod +x /usr/local/bin/uv
 
-# Copy just requirements first for better caching
-COPY requirements.txt .
+# Copy both requirements files
+COPY requirements.txt requirements-armv6.txt ./
 
-# Install Python dependencies
-RUN uv pip install -r requirements.txt \
-    --system --break-system-packages \
-    --index-strategy unsafe-best-match \
-    --extra-index-url https://download.pytorch.org/whl/cpu
+# Install Python dependencies conditionally based on architecture
+# Use minimal requirements for ARMv6 (original Pi Zero)
+RUN if [ "$TARGETARCH" = "arm" ] && [ "$TARGETVARIANT" = "v6" ]; then \
+        echo "Building for ARMv6 - using minimal requirements"; \
+        uv pip install -r requirements-armv6.txt \
+            --system --break-system-packages \
+            --index-strategy unsafe-best-match; \
+    else \
+        echo "Building for $TARGETARCH$TARGETVARIANT - using full requirements"; \
+        uv pip install -r requirements.txt \
+            --system --break-system-packages \
+            --index-strategy unsafe-best-match \
+            --extra-index-url https://download.pytorch.org/whl/cpu; \
+    fi
 
 # Copy project
 COPY . .

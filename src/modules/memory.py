@@ -26,16 +26,29 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from qdrant_client.async_qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Distance
-from qdrant_client.models import Filter
-from qdrant_client.models import PayloadSchemaType
-from qdrant_client.models import PointStruct
-from qdrant_client.models import VectorParams
 from quart import current_app
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from src.modules.vector_generator import VectorGenerator
+
+try:
+    from qdrant_client.async_qdrant_client import AsyncQdrantClient
+    from qdrant_client.models import Distance
+    from qdrant_client.models import Filter
+    from qdrant_client.models import PayloadSchemaType
+    from qdrant_client.models import PointStruct
+    from qdrant_client.models import VectorParams
+
+    QDRANT_AVAILABLE = True
+except ImportError:
+    QDRANT_AVAILABLE = False
+    # Create stub classes
+    AsyncQdrantClient = None
+    Distance = None
+    Filter = None
+    PayloadSchemaType = None
+    PointStruct = None
+    VectorParams = None
 
 
 class MemoryService:
@@ -63,6 +76,13 @@ class MemoryService:
 
     def init_app(self, app):
         """Initialize the memory service with the application."""
+        if not QDRANT_AVAILABLE:
+            app.logger.warning(
+                "Qdrant client not available - memory features will be disabled"
+            )
+            app.extensions["memory"] = self
+            return
+
         # Get configuration
         host = app.config["QDRANT_HOST"]
         port = app.config["QDRANT_PORT"]

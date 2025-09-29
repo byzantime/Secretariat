@@ -14,13 +14,6 @@ from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
 
 from src.providers.zen_provider import ZenProvider
-from src.tools.browser_tools import browse_web
-from src.tools.memory_tools import memory_search
-from src.tools.scheduling_tools import automations_list
-from src.tools.scheduling_tools import delete_automation
-from src.tools.scheduling_tools import setup_automation
-from src.tools.todo_tools import todo_read
-from src.tools.todo_tools import todo_write
 
 
 class LLMService:
@@ -96,7 +89,13 @@ class LLMService:
         with open(instructions_path, "r", encoding="utf-8") as f:
             instructions_content = f.read()
 
-        # Create the main agent with tools
+        # Import all toolsets
+        from src.tools.browser_tools import browser_toolset
+        from src.tools.memory_tools import memory_toolset
+        from src.tools.scheduling_tools import scheduling_toolset
+        from src.tools.todo_tools import todo_toolset
+
+        # Create the main agent with tools and toolsets
         self.agent = Agent(
             model=model,
             retries=3,
@@ -104,6 +103,12 @@ class LLMService:
             system_prompt="You are a helpful AI assistant.",
             instructions=instructions_content,
             tools=[duckduckgo_search_tool()],
+            toolsets=[
+                browser_toolset,
+                memory_toolset,
+                todo_toolset,
+                scheduling_toolset,
+            ],
         )
 
         # Create extraction agent for structured data extraction
@@ -132,22 +137,36 @@ class LLMService:
                 " data."
             )
 
-        # Register tools
-        self._register_tools()
+        # Log toolset availability
+        self._log_toolset_availability(
+            app,
+            [
+                ("Browser", browser_toolset),
+                ("Memory", memory_toolset),
+                ("Todo", todo_toolset),
+                ("Scheduling", scheduling_toolset),
+            ],
+        )
 
         app.logger.info("LLMService initialised")
         app.extensions["llm"] = self
 
-    def _register_tools(self):
-        """Register tools with the agent."""
-        self.agent.tool(todo_read)
-        self.agent.tool(todo_write)
-        self.agent.tool(browse_web)
-        self.agent.tool(memory_search)
-        # Automations
-        self.agent.tool(setup_automation)
-        self.agent.tool(automations_list)
-        self.agent.tool(delete_automation)
+    def _log_toolset_availability(self, app, toolsets):
+        """Log which tools are available from each toolset."""
+        for name, toolset in toolsets:
+            # FunctionToolset.tools is a dict of tool names -> Tool objects
+            tools = toolset.tools
+            if tools:
+                tool_count = len(tools)
+                tool_names = list(tools.keys())
+                app.logger.info(
+                    f"{name} toolset: {tool_count} tools available"
+                    f" ({', '.join(tool_names)})"
+                )
+            else:
+                app.logger.info(
+                    f"{name} toolset: no tools available (dependencies missing)"
+                )
 
     async def process_and_respond(self, conversation_id: str, user_message: str):
         """Process conversation history and generate a response."""

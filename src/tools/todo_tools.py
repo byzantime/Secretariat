@@ -5,9 +5,14 @@ from typing import Dict
 from typing import List
 
 from pydantic_ai import RunContext
+from pydantic_ai.toolsets import FunctionToolset
 from quart import current_app
 
+# Create toolset for todo tools
+todo_toolset = FunctionToolset()
 
+
+@todo_toolset.tool
 async def todo_read(ctx: RunContext[dict]) -> str:
     """Use this tool to read the current to-do list for the session.
 
@@ -51,6 +56,7 @@ async def todo_read(ctx: RunContext[dict]) -> str:
     return result.strip()
 
 
+@todo_toolset.tool
 async def todo_write(ctx: RunContext[dict], tasks: List[Dict[str, str]]) -> str:
     """Use this tool to create and manage a structured task list for your current session.
 

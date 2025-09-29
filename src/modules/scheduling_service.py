@@ -217,7 +217,7 @@ class SchedulingService:
                 max_retries,
                 interactive,
             ],
-            name=f"{agent_instructions[:50]}...",
+            name=agent_instructions,
             replace_existing=True,
         )
 
