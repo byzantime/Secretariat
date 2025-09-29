@@ -1,47 +1,37 @@
 # Use an official Python runtime as a parent image
 FROM debian:testing-slim
 
-# Accept build args for multi-arch support
-ARG TARGETARCH
-ARG TARGETVARIANT
-
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
 
 # Set the working directory in the container
 WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential nodejs npm wget \
+    build-essential nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN wget -qO- https://astral.sh/uv/install.sh | sh \
-    && mv /root/.local/bin/uv /usr/local/bin/uv \
-    && chmod +x /usr/local/bin/uv
+# Copy uv from official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Copy project files needed for installation
-COPY pyproject.toml uv.lock ./
-
-# Install Python dependencies conditionally based on architecture
-# Use minimal dependencies for ARMv6 (original Pi Zero)
-RUN if [ "$TARGETARCH" = "arm" ] && [ "$TARGETVARIANT" = "v6" ]; then \
-        echo "Building for ARMv6 - using minimal dependencies"; \
-        uv pip install --no-deps .[armv6] \
-            --system --break-system-packages \
-            --index-strategy unsafe-best-match; \
-    else \
-        echo "Building for $TARGETARCH$TARGETVARIANT - using full dependencies"; \
-        uv pip install --no-deps . \
-            --system --break-system-packages \
-            --index-strategy unsafe-best-match \
-            --extra-index-url https://download.pytorch.org/whl/cpu; \
-    fi
+# Install dependencies first (separate layer for better caching)
+# Environment markers will automatically exclude packages based on platform
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
 
 # Copy rest of project
 COPY . .
+
+# Install the project itself
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 # Install npm packages and build Tailwind CSS
 RUN npm ci && \
