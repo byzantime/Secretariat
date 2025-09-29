@@ -17,11 +17,16 @@ class Config:
     DATABASE_NAME = os.environ.get("DATABASE_NAME", "secretariat")
     DATABASE_URL = f"sqlite+aiosqlite:///./{DATABASE_NAME}.db"
 
-    # Anthropic Configuration
-    ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+    # LLM Provider Configuration
+    LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openrouter")  # "openrouter" or "zen"
+
     # OpenRouter Configuration
     OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
     OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL")
+
+    # OpenCode Zen Configuration
+    ZEN_API_KEY = os.environ.get("ZEN_API_KEY", "")
+    ZEN_MODEL = os.environ.get("ZEN_MODEL")
 
     BROWSER_USE_MODEL = os.environ.get("BROWSER_USE_MODEL", "")
 

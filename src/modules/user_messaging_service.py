@@ -338,10 +338,9 @@ class TelegramChannel(CommunicationChannel):
                 )
             except Exception as e:
                 # Fallback to escaped HTML entities if Markdown parsing fails
-                html.escape(content)
                 try:
                     await self.bot.send_message(
-                        chat_id=chat_id, text=content, parse_mode="HTML"
+                        chat_id=chat_id, text=html.escape(content), parse_mode="HTML"
                     )
                 except Exception as fallback_e:
                     current_app.logger.error(
