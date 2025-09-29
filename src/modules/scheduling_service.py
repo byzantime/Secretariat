@@ -10,6 +10,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from quart import current_app
+from sqlalchemy.future import select
 
 from src.models.scheduled_task import ScheduledTask
 
@@ -77,10 +78,6 @@ class SchedulingService:
     async def _restore_pending_jobs(self):
         """Restore pending jobs from database to scheduler."""
         try:
-            from sqlalchemy.future import select
-
-            from src.models.scheduled_task import ScheduledTask
-
             async with self.db.session_factory() as session:
                 # Get all pending tasks
                 result = await session.execute(
@@ -103,8 +100,8 @@ class SchedulingService:
                                 )
                                 continue
 
-                        # Recreate the trigger based on schedule config
-                        if task.schedule_config["type"] == "once":
+                        # Recreate the trigger based on schedule type and config
+                        if task.schedule_type == "once":
                             run_date = datetime.fromisoformat(
                                 task.schedule_config["when"]
                             )
@@ -124,33 +121,14 @@ class SchedulingService:
                                 continue
 
                             trigger = DateTrigger(run_date=run_date)
-                        elif task.schedule_config["type"] == "cron":
-                            trigger = CronTrigger(
-                                year=task.schedule_config.get("year"),
-                                month=task.schedule_config.get("month"),
-                                day=task.schedule_config.get("day"),
-                                week=task.schedule_config.get("week"),
-                                day_of_week=task.schedule_config.get("day_of_week"),
-                                hour=task.schedule_config.get("hour"),
-                                minute=task.schedule_config.get("minute"),
-                                second=task.schedule_config.get("second"),
-                                start_date=task.schedule_config.get("start_date"),
-                                end_date=task.schedule_config.get("end_date"),
-                            )
-                        elif task.schedule_config["type"] == "interval":
-                            trigger = IntervalTrigger(
-                                weeks=task.schedule_config.get("weeks", 0),
-                                days=task.schedule_config.get("days", 0),
-                                hours=task.schedule_config.get("hours", 0),
-                                minutes=task.schedule_config.get("minutes", 0),
-                                seconds=task.schedule_config.get("seconds", 0),
-                                start_date=task.schedule_config.get("start_date"),
-                                end_date=task.schedule_config.get("end_date"),
-                            )
+                        elif task.schedule_type == "cron":
+                            trigger = CronTrigger(**task.schedule_config)
+                        elif task.schedule_type == "interval":
+                            trigger = IntervalTrigger(**task.schedule_config)
                         else:
                             current_app.logger.error(
                                 f"Unknown schedule type for task {task.id}:"
-                                f" {task.schedule_config['type']}"
+                                f" {task.schedule_type}"
                             )
                             continue
 
@@ -193,6 +171,7 @@ class SchedulingService:
         task_id: str,
         conversation_id: str,
         agent_instructions: str,
+        schedule_type: str,
         schedule_config: Dict[str, Any],
         interactive: bool = True,
         max_retries: int = 3,
@@ -203,8 +182,8 @@ class SchedulingService:
             task_id: Unique task identifier
             conversation_id: Conversation context
             agent_instructions: Instructions for the agent
-            schedule_config: Scheduling configuration
-                - type: "once", "cron", or "interval"
+            schedule_type: Type of schedule ("once", "cron", or "interval")
+            schedule_config:
                 - For "once": when: datetime string
                 - For "cron": year/month/day/week/day_of_week/hour/minute/second/start_date/end_date parameters
                 - For "interval": weeks/days/hours/minutes/seconds/start_date/end_date parameters
@@ -214,42 +193,23 @@ class SchedulingService:
         Returns:
             APScheduler job ID
         """
-        # Create trigger based on schedule type
-        if schedule_config["type"] == "once":
+        # Create trigger based on schedule type with clean unpacking
+        if schedule_type == "once":
             trigger = DateTrigger(
                 run_date=datetime.fromisoformat(schedule_config["when"])
             )
-        elif schedule_config["type"] == "cron":
-            trigger = CronTrigger(
-                year=schedule_config.get("year"),
-                month=schedule_config.get("month"),
-                day=schedule_config.get("day"),
-                week=schedule_config.get("week"),
-                day_of_week=schedule_config.get("day_of_week"),
-                hour=schedule_config.get("hour"),
-                minute=schedule_config.get("minute"),
-                second=schedule_config.get("second"),
-                start_date=schedule_config.get("start_date"),
-                end_date=schedule_config.get("end_date"),
-            )
-        elif schedule_config["type"] == "interval":
-            trigger = IntervalTrigger(
-                weeks=schedule_config.get("weeks"),
-                days=schedule_config.get("days"),
-                hours=schedule_config.get("hours"),
-                minutes=schedule_config.get("minutes"),
-                seconds=schedule_config.get("seconds"),
-                start_date=schedule_config.get("start_date"),
-                end_date=schedule_config.get("end_date"),
-            )
+        elif schedule_type == "cron":
+            trigger = CronTrigger(**schedule_config)
+        elif schedule_type == "interval":
+            trigger = IntervalTrigger(**schedule_config)
         else:
-            raise ValueError(f"Unsupported schedule type: {schedule_config['type']}")
+            raise ValueError(f"Unsupported schedule type: {schedule_type}")
 
         # Create job
         self.scheduler.add_job(
             func=SchedulingService._execute_scheduled_agent,
             trigger=trigger,
-            id=str(task_id),
+            id=task_id,
             args=[
                 task_id,
                 conversation_id,
@@ -265,10 +225,11 @@ class SchedulingService:
         async with self.db.session_factory() as session:
             await ScheduledTask.create_task(
                 session=session,
-                task_id=str(task_id),
-                job_id=str(task_id),
-                conversation_id=str(conversation_id),
+                task_id=task_id,
+                job_id=task_id,
+                conversation_id=conversation_id,
                 agent_instructions=agent_instructions,
+                schedule_type=schedule_type,
                 schedule_config=schedule_config,
                 interactive=interactive,
             )
@@ -325,7 +286,7 @@ class SchedulingService:
 
             # Update task status to completed
             async with db.session_factory() as session:
-                task = await ScheduledTask.get_by_id(session, str(task_id))
+                task = await ScheduledTask.get_by_id(session, task_id)
                 if task:
                     await task.update_status(session, "completed")
 
@@ -347,7 +308,7 @@ class SchedulingService:
 
             # Update task status and handle retries
             async with db.session_factory() as session:
-                task = await ScheduledTask.get_by_id(session, str(task_id))
+                task = await ScheduledTask.get_by_id(session, task_id)
                 if task is not None:
                     failure_count = task.failure_count or 0
                     if failure_count >= max_retries:

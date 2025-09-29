@@ -10,12 +10,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is a Quart-based AI agent application with HTMX frontend, PostgreSQL database, and Anthropic Claude integration. Built as a foundation for AI-powered web applications.
+This is a Quart-based AI agent application with HTMX frontend, SQLite database, and Anthropic Claude integration. Built as a foundation for AI-powered web applications.
 
 ### Key Components
 
 - **Quart Framework**: Async Python web framework (Flask-like API)
-- **Database**: PostgreSQL with SQLAlchemy ORM and Alembic migrations
+- **Database**: SQLite with SQLAlchemy ORM and Alembic migrations
 - **Frontend**: HTMX + Tailwind CSS for reactive UI
 - **Authentication**: Quart-Auth with session management
 - **LLM Integration**: Anthropic Claude API via async client
@@ -118,14 +118,14 @@ Extensions in `src/extensions.py` must be initialized in dependency order:
 ### Database Models
 - User model supports authentication via `UserManager`
 - Models use SQLAlchemy with async support (asyncpg)
-- Database URL constructed from individual env vars with PostgreSQL+asyncpg driver
+- Database URL constructed from individual env vars
 
 ## Environment Variables
 
 Required:
 - `SECRET_KEY`: Flask session encryption
 - `ANTHROPIC_API_KEY`: Claude API access
-- `DATABASE_*`: PostgreSQL connection details
+- `DATABASE_*`: SQLite connection details
 
 Optional:
 - `DEBUG`: Enable debug mode (default: False)

@@ -26,11 +26,10 @@ class ScheduledTask(Base):
 
     id = Column(String(36), primary_key=True)
     job_id = Column(String(255), unique=True, nullable=False, index=True)
-    conversation_id = Column(String(36), nullable=False, index=True)
+    conversation_id = Column(String(36), nullable=True, index=True)
     agent_instructions = Column(Text, nullable=False)
-    schedule_config = Column(
-        JSON, nullable=False
-    )  # {type: "once"|"cron"|"interval", when: "..."}
+    schedule_type = Column(String(20), nullable=False)  # "once", "cron", or "interval"
+    schedule_config = Column(JSON, nullable=False)
     status = Column(
         String(50), nullable=False, default="pending"
     )  # pending, running, completed, failed
@@ -72,8 +71,9 @@ class ScheduledTask(Base):
         session: AsyncSession,
         task_id: str,
         job_id: str,
-        conversation_id: str,
+        conversation_id: Optional[str],
         agent_instructions: str,
+        schedule_type: str,
         schedule_config: Dict[str, Any],
         interactive: bool = True,
     ) -> "ScheduledTask":
@@ -81,8 +81,9 @@ class ScheduledTask(Base):
         task = ScheduledTask(
             id=str(task_id),
             job_id=job_id,
-            conversation_id=str(conversation_id),
+            conversation_id=conversation_id,
             agent_instructions=agent_instructions,
+            schedule_type=schedule_type,
             schedule_config=schedule_config,
             interactive=interactive,
         )

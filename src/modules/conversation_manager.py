@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 class Conversation:
     """Simplified conversation class for LLM interactions."""
 
-    id: str = field(default_factory=uuid4)
+    id: str = field(default_factory=lambda: str(uuid4()))
     user_id: Optional[int] = None
     pydantic_messages: List["ModelMessage"] = field(default_factory=list)
     processing_task: Optional[asyncio.Task] = None
