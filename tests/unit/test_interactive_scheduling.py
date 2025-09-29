@@ -11,6 +11,7 @@ import pytest
 
 from src.models.schedule_config import CronSchedule
 from src.models.schedule_config import OnceSchedule
+from src.models.schedule_config import ScheduleType
 from src.models.scheduled_task import ScheduledTask
 from src.tools.scheduling_tools import setup_automation
 
@@ -37,8 +38,8 @@ async def test_interactive_scheduling(app, conversation_manager, mock_conversati
         result = await setup_automation(
             ctx=ctx,
             agent_instructions="Send me a motivational quote",
+            schedule_type=ScheduleType.ONCE,
             schedule_config=OnceSchedule(
-                type="once",
                 when=(datetime.now() + timedelta(minutes=1)).isoformat(),
             ),
             interactive=True,
@@ -80,8 +81,8 @@ async def test_non_interactive_scheduling(
         result = await setup_automation(
             ctx=ctx,
             agent_instructions="Backup database",
+            schedule_type=ScheduleType.CRON,
             schedule_config=CronSchedule(
-                type="cron",
                 hour=2,
                 minute=0,  # Daily at 2 AM
             ),

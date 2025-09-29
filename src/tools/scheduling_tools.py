@@ -9,12 +9,14 @@ from pydantic_ai import RunContext
 from quart import current_app
 
 from src.models.schedule_config import ScheduleConfig
+from src.models.schedule_config import ScheduleType
 from src.models.schedule_config import schedule_config_to_dict
 
 
 async def setup_automation(
     ctx: RunContext[Dict[str, Any]],
     agent_instructions: str,
+    schedule_type: ScheduleType,
     schedule_config: ScheduleConfig,
     interactive: bool = True,
 ) -> Dict[str, Any]:
@@ -71,31 +73,34 @@ async def setup_automation(
     Examples:
         # ONE-TIME: Specific moment (use "once")
         agent_instructions = "Send me a birthday reminder"
-        schedule_config = OnceSchedule(type="once", when="2024-12-25T09:00:00")
+        schedule_type = "once"
+        schedule_config = OnceSchedule(when="2024-12-25T09:00:00")
 
         # CALENDAR-BASED: Business routine (use "cron")
         agent_instructions = "Send morning briefing with calendar and priorities"
-        schedule_config = CronSchedule(type="cron", day_of_week="mon-fri", hour=8, minute=30)
+        schedule_type = "cron"
+        schedule_config = CronSchedule(day_of_week="mon-fri", hour=8, minute=30)
 
         # TIME-INTERVAL: Regular monitoring (use "interval")
         agent_instructions = "Check system health and alert if issues found"
-        schedule_config = IntervalSchedule(type="interval", hours=2)
+        schedule_type = "interval"
+        schedule_config = IntervalSchedule(hours=2)
 
         # CALENDAR-BASED: Weekly report (use "cron")
         agent_instructions = "Generate weekly task summary and email it"
-        schedule_config = CronSchedule(type="cron", day_of_week="fri", hour=17, minute=0)
+        schedule_type = "cron"
+        schedule_config = CronSchedule(day_of_week="fri", hour=17, minute=0)
 
         # TIME-INTERVAL: High-frequency updates (use "interval")
         agent_instructions = "Update dashboard with latest metrics"
-        schedule_config = IntervalSchedule(type="interval", minutes=15)
+        schedule_type = "interval"
+        schedule_config = IntervalSchedule(minutes=15)
 
         # ⚠️ CRITICAL EXAMPLE: "Every other Thursday" - MUST use interval, not cron!
         agent_instructions = "Send bi-weekly team update"
-        schedule_config = IntervalSchedule(type="interval", weeks=2, start_date="2025-09-25T10:00:00")
+        schedule_type = "interval"
+        schedule_config = IntervalSchedule(weeks=2, start_date="2025-09-25T10:00:00")
         # Why interval? Cron cannot express "every other" patterns - only interval can!
-
-        # ⚠️ WRONG APPROACH: Don't try this with cron - it won't work for "every other"
-        schedule_config = CronSchedule(type="cron", day_of_week="thu")  # This is EVERY Thursday, not every other!
 
     Returns:
         Dictionary with task details including job_id, status, and next run time
@@ -105,9 +110,9 @@ async def setup_automation(
     conversation_id = ctx.deps.get("conversation_id")
 
     # Generate unique task ID
-    task_id = uuid.uuid4()
+    task_id = str(uuid.uuid4())
 
-    # Convert Pydantic model to dict for compatibility with existing code
+    # Convert Pydantic model to dict
     schedule_config_dict = schedule_config_to_dict(schedule_config)
 
     # Schedule the task
@@ -116,13 +121,14 @@ async def setup_automation(
         task_id=task_id,
         conversation_id=conversation_id,
         agent_instructions=agent_instructions,
+        schedule_type=schedule_type.value,
         schedule_config=schedule_config_dict,
         interactive=interactive,
         max_retries=3,
     )
 
     # Determine scheduled_for based on type
-    if schedule_config.type == "interval":
+    if schedule_type == ScheduleType.INTERVAL:
         scheduled_for = getattr(schedule_config, "start_date", None) or "interval"
     else:
         scheduled_for = getattr(schedule_config, "when", "unknown")
@@ -130,10 +136,10 @@ async def setup_automation(
     return {
         "status": "success",
         "job_id": job_id,
-        "task_id": str(task_id),
+        "task_id": task_id,
         "message": f"Task scheduled successfully with job ID: {job_id}",
         "scheduled_for": scheduled_for,
-        "type": schedule_config.type,
+        "type": schedule_type.value,
     }
 
 

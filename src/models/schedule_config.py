@@ -1,6 +1,6 @@
 """Pydantic models for schedule configuration with automatic JSON schema generation."""
 
-from typing import Literal
+from enum import Enum
 from typing import Optional
 from typing import Union
 
@@ -9,10 +9,17 @@ from pydantic import Field
 from pydantic import ValidationError
 
 
+class ScheduleType(str, Enum):
+    """Schedule type enumeration."""
+
+    ONCE = "once"
+    CRON = "cron"
+    INTERVAL = "interval"
+
+
 class OnceSchedule(BaseModel):
     """One-time schedule configuration."""
 
-    type: Literal["once"]
     when: str = Field(
         ...,
         description="ISO datetime string for when to run (e.g., '2024-01-16T14:00:00')",
@@ -22,7 +29,6 @@ class OnceSchedule(BaseModel):
 class CronSchedule(BaseModel):
     """Cron-based schedule configuration using APScheduler CronTrigger format."""
 
-    type: Literal["cron"]
     year: Optional[int] = Field(None, ge=1970, le=2099, description="Year (1970-2099)")
     month: Optional[int] = Field(None, ge=1, le=12, description="Month (1-12)")
     day: Optional[int] = Field(None, ge=1, le=31, description="Day of month (1-31)")
@@ -61,7 +67,6 @@ class CronSchedule(BaseModel):
 class IntervalSchedule(BaseModel):
     """Interval-based schedule configuration."""
 
-    type: Literal["interval"]
     weeks: Optional[int] = Field(None, ge=0, description="Number of weeks between runs")
     days: Optional[int] = Field(None, ge=0, description="Number of days between runs")
     hours: Optional[int] = Field(None, ge=0, description="Number of hours between runs")
@@ -93,20 +98,27 @@ ScheduleConfig = Union[OnceSchedule, CronSchedule, IntervalSchedule]
 
 def schedule_config_to_dict(config: ScheduleConfig) -> dict:
     """Convert ScheduleConfig to dictionary for database storage."""
-    return config.model_dump()
+    return config.model_dump(exclude_none=True)
 
 
-def dict_to_schedule_config(data: dict) -> ScheduleConfig:
-    """Convert dictionary to ScheduleConfig for validation."""
+def dict_to_schedule_config(data: dict, schedule_type: str) -> ScheduleConfig:
+    """Convert dictionary to ScheduleConfig for validation.
+
+    Args:
+        data: Dictionary containing schedule configuration
+        schedule_type: The schedule type ("once", "cron", or "interval")
+
+    Returns:
+        Validated ScheduleConfig instance
+    """
     try:
-        # Try each type in order
-        if data.get("type") == "once":
+        if schedule_type == "once":
             return OnceSchedule.model_validate(data)
-        elif data.get("type") == "cron":
+        elif schedule_type == "cron":
             return CronSchedule.model_validate(data)
-        elif data.get("type") == "interval":
+        elif schedule_type == "interval":
             return IntervalSchedule.model_validate(data)
         else:
-            raise ValueError(f"Unknown schedule type: {data.get('type')}")
+            raise ValueError(f"Unknown schedule type: {schedule_type}")
     except ValidationError as e:
         raise ValueError(f"Invalid schedule configuration: {e}") from e
