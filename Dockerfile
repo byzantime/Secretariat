@@ -22,25 +22,25 @@ RUN wget -qO- https://astral.sh/uv/install.sh | sh \
     && mv /root/.local/bin/uv /usr/local/bin/uv \
     && chmod +x /usr/local/bin/uv
 
-# Copy both requirements files
-COPY requirements.txt requirements-armv6.txt ./
+# Copy project files needed for installation
+COPY pyproject.toml uv.lock ./
 
 # Install Python dependencies conditionally based on architecture
-# Use minimal requirements for ARMv6 (original Pi Zero)
+# Use minimal dependencies for ARMv6 (original Pi Zero)
 RUN if [ "$TARGETARCH" = "arm" ] && [ "$TARGETVARIANT" = "v6" ]; then \
-        echo "Building for ARMv6 - using minimal requirements"; \
-        uv pip install -r requirements-armv6.txt \
+        echo "Building for ARMv6 - using minimal dependencies"; \
+        uv pip install --no-deps .[armv6] \
             --system --break-system-packages \
             --index-strategy unsafe-best-match; \
     else \
-        echo "Building for $TARGETARCH$TARGETVARIANT - using full requirements"; \
-        uv pip install -r requirements.txt \
+        echo "Building for $TARGETARCH$TARGETVARIANT - using full dependencies"; \
+        uv pip install --no-deps . \
             --system --break-system-packages \
             --index-strategy unsafe-best-match \
             --extra-index-url https://download.pytorch.org/whl/cpu; \
     fi
 
-# Copy project
+# Copy rest of project
 COPY . .
 
 # Install npm packages and build Tailwind CSS

@@ -7,7 +7,7 @@ An open-source AI-powered personal assistant.
 Install dependencies:
 
 ```bash
-uv pip install -r requirements.txt
+uv sync
 ```
 
 Set up the database:
@@ -110,7 +110,7 @@ The memory system will automatically create the required collection (`memories`)
 ### Updating dependencies:
 
 ```bash
-# First add the new dependency to requirements.in, then:
-uv pip compile requirements.in --output-file requirements.txt
-uv pip install -r requirements.txt
+# Add the new dependency to pyproject.toml [project] dependencies section, then:
+uv lock
+uv sync
 ```

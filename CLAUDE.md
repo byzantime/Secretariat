@@ -48,7 +48,7 @@ src/
 ### Environment Setup
 ```bash
 # Install Python dependencies
-uv pip install -r requirements.txt
+uv sync
 
 # Install Node.js dependencies and build CSS
 npm ci

@@ -1,16 +1,108 @@
 [project]
-name = "Secretariat"
+name = "secretariat"
 version = "0.1.0"
+authors = [
+    {name = "Hugo Baldwin", email = "windlab@gmail.com"},
+]
+description = "AI agent application built with Quart, HTMX, and Anthropic Claude"
 readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["ai", "agent", "telegram"]
 dependencies = [
     "quart",
     "python-dotenv",
+    "alembic",
+    "apscheduler",
+    "browser-use",
+    "pydantic-ai-slim[duckduckgo]",
+    "aiosqlite",
+    "httpx",
+    "jinja-ui-kit @ git+https://github.com/byzantime/jinja-ui-kit.git",
+    "quart-assets",
+    "quart-auth",
+    "quart-compress",
+    "quart-flask-patch",
+    "sqlalchemy[asyncio]",
+    "sentry-sdk",
+    "python-telegram-bot[webhooks]",
+    "fastembed",
+    "numpy",
+    "qdrant-client",
+    "vaderSentiment",
 ]
-dynamic = ["description"]
 
-[build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
+[project.optional-dependencies]
+armv6 = [
+    # Minimal dependencies for ARMv6 (original Raspberry Pi Zero)
+    # Excludes: fastembed (onnxruntime doesn't support ARMv6)
+    # Excludes: browser-use (too heavy for ARMv6)
+    # Excludes: qdrant-client (grpcio build issues on ARMv6)
+    "quart",
+    "python-dotenv",
+    "alembic",
+    "apscheduler",
+    "pydantic-ai-slim[duckduckgo]",
+    "aiosqlite",
+    "httpx",
+    "jinja-ui-kit @ git+https://github.com/byzantime/jinja-ui-kit.git",
+    "quart-assets",
+    "quart-auth",
+    "quart-compress",
+    "quart-flask-patch",
+    "sqlalchemy[asyncio]",
+    "sentry-sdk",
+    "python-telegram-bot[webhooks]",
+    "numpy",
+    "vaderSentiment",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "coverage>=7.0.0",
+    "aiosqlite>=0.20.0",
+    "ruff>=0.12.7",
+]
+all = [
+    "quart",
+    "python-dotenv",
+    "alembic",
+    "apscheduler",
+    "browser-use",
+    "pydantic-ai-slim[duckduckgo]",
+    "aiosqlite",
+    "httpx",
+    "jinja-ui-kit @ git+https://github.com/byzantime/jinja-ui-kit.git",
+    "quart-assets",
+    "quart-auth",
+    "quart-compress",
+    "quart-flask-patch",
+    "sqlalchemy[asyncio]",
+    "sentry-sdk",
+    "python-telegram-bot[webhooks]",
+    "fastembed",
+    "numpy",
+    "qdrant-client",
+    "vaderSentiment",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "coverage>=7.0.0",
+    "ruff>=0.12.7",
+]
 
 [tool.black]
 line-length = 88
