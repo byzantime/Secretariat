@@ -1,5 +1,7 @@
 """Telegram blueprint for webhook handling."""
 
+import asyncio
+
 from quart import Blueprint
 from quart import current_app
 from quart import request
@@ -42,7 +44,7 @@ async def telegram_webhook():
             return "Internal Server Error", 500
 
         # Process the update
-        await _process_telegram_update(telegram_channel, update)
+        asyncio.create_task(_process_telegram_update(telegram_channel, update))
 
         return "OK", 200
 

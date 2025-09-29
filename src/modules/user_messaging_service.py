@@ -636,7 +636,7 @@ class CommunicationService:
         webui_channel = self.channels.get("webui")
         if webui_channel and await webui_channel.is_connected():
             if hasattr(webui_channel, "send_user_message"):
-                await webui_channel.send_user_message(message)
+                asyncio.create_task(webui_channel.send_user_message(message))
 
     # Chat Event Handlers
     async def _handle_chat_message(self, data: Optional[Dict] = None):
@@ -695,27 +695,25 @@ class CommunicationService:
         )
 
     async def update_status(self, status_message: Optional[str] = None):
-        """Update status across all active channels."""
-        # Update status on all connected channels
+        """Update status across all connected channels."""
         for channel in self.channels.values():
             if await channel.is_connected():
-                await channel.update_status(status_message)
+                asyncio.create_task(channel.update_status(status_message))
 
     async def _process_chat_message(self, conversation, message: str):
         """Process chat message with LLM and tools."""
         current_app.logger.info(f"Processing chat message: {message}")
+        await self.update_status("Generating response...")
 
         # Broadcast user message for UI
         await self.send_user_message(message)
-
-        # Get the LLM service
-        llm_service = current_app.extensions["llm"]
-        await self.update_status("Generating response...")
 
         current_app.logger.info(
             "Pydantic message count before processing:"
             f" {len(conversation.pydantic_messages)}"
         )
+        # Get the LLM service
+        llm_service = current_app.extensions["llm"]
         try:
             # Process the conversation with LLM
             await llm_service.process_and_respond(conversation.id, message)
@@ -724,7 +722,7 @@ class CommunicationService:
             await self.update_status("Cancelled by user")
             raise  # Re-raise to properly handle the cancellation
         finally:
-            await self.update_status()  # Show todos if they exist, otherwise "Ready"
+            await self.update_status()
 
     async def _cleanup_background_tasks(self):
         """Cancel all background tasks on shutdown."""
