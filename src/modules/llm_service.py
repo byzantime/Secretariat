@@ -217,7 +217,7 @@ class LLMService:
                 f"LLM streaming completed for conversation {conversation_id}"
             )
 
-    async def execute_agent_stream(
+    async def execute_agent_stream(  # noqa: C901
         self,
         agent_instructions: str,
         message_history: list,

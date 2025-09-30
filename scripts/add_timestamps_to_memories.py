@@ -16,12 +16,12 @@ from datetime import datetime
 from datetime import timezone
 from pathlib import Path
 
+from modules.sample_data import memories
+
 # Add src directory to Python path to import sample_data
 script_dir = Path(__file__).parent
 src_dir = script_dir.parent / "src"
 sys.path.insert(0, str(src_dir))
-
-from modules.sample_data import memories
 
 
 def generate_random_timestamp():

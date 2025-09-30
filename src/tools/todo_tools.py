@@ -57,7 +57,9 @@ async def todo_read(ctx: RunContext[dict]) -> str:
 
 
 @todo_toolset.tool
-async def todo_write(ctx: RunContext[dict], tasks: List[Dict[str, str]]) -> str:
+async def todo_write(  # noqa: C901
+    ctx: RunContext[dict], tasks: List[Dict[str, str]]
+) -> str:
     """Use this tool to create and manage a structured task list for your current session.
 
     This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.

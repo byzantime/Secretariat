@@ -75,7 +75,7 @@ class SchedulingService:
             self.scheduler.shutdown(wait=True)
             current_app.logger.info("APScheduler shutdown")
 
-    async def _restore_pending_jobs(self):
+    async def _restore_pending_jobs(self):  # noqa: C901
         """Restore pending jobs from database to scheduler."""
         try:
             async with self.db.session_factory() as session:
@@ -260,29 +260,13 @@ class SchedulingService:
 
             # Get LLM service
             llm_service = current_app.extensions["llm"]
-
-            # Create a temporary agent for execution
-            # This will use the same model and configuration as the main agent
-            temp_agent = llm_service.agent
-
-            if interactive:
-                # Interactive mode: use streaming with full event emission
-                await llm_service.execute_agent_stream(
-                    agent_instructions=agent_instructions,
-                    message_history=[],
-                    deps={},
-                    emit_events=True,  # Interactive mode should emit events
-                    store_result=True,  # Agent output will be added to history.
-                )
-            else:
-                # Non-interactive mode: use batch execution
-                result = await temp_agent.run(
-                    user_prompt=agent_instructions,
-                    message_history=[],
-                    deps={},
-                )
-                # Store the result in conversation
-                conversation.store_run_result(result)
+            await llm_service.execute_agent_stream(
+                agent_instructions=agent_instructions,
+                message_history=[],
+                deps={},
+                emit_events=True,  # Interactive mode should emit events
+                store_result=True,  # Agent output will be added to history.
+            )
 
             # Update task status to completed
             async with db.session_factory() as session:
