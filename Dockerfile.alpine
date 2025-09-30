@@ -18,7 +18,8 @@ WORKDIR /app
 # Using Alpine packages avoids slow compilation on ARM architectures
 RUN apk add --no-cache \
     build-base nodejs npm curl bash git \
-    py3-greenlet py3-yaml py3-markupsafe py3-brotli
+    py3-greenlet py3-yaml py3-markupsafe py3-brotli \
+    rust cargo
 
 # Install uv using standalone installer (supports all platforms including ARM v6/v7)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
