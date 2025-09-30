@@ -1,6 +1,9 @@
 # Use an official Python runtime as a parent image
 FROM python:3.13-alpine
 
+# Accept QEMU_CPU argument for proper armv6 emulation during cross-compilation
+ARG QEMU_CPU
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

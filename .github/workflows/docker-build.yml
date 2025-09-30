@@ -117,6 +117,7 @@ jobs:
           cache-from: type=gha,scope=alpine
           cache-to: type=gha,mode=max,scope=alpine
           build-args: |
+            QEMU_CPU=arm1176
             BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
             VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
             REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
