@@ -76,6 +76,9 @@ jobs:
   docker:
     name: Docker Build
     needs: test
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/docker-build.yml
     with:
       push: ${{ github.event_name != 'pull_request' }}
