@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apk add --no-cache \
-    build-base nodejs npm curl bash
+    build-base nodejs npm curl bash git
 
 # Install uv using standalone installer (supports all platforms including ARM v6/v7)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \

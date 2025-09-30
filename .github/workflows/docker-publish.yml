@@ -1,14 +1,15 @@
 name: Docker Build and Publish
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches:
       - main
+  push:
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - main
 
 env:
   REGISTRY: ghcr.io
@@ -17,6 +18,8 @@ env:
 jobs:
   build-debian:
     name: Build Debian Images (AMD64/ARM64)
+    # Only run if CI workflow succeeded, or if triggered by a tag push
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'push' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -75,6 +78,8 @@ jobs:
 
   build-alpine:
     name: Build Alpine Images (ARMv6/ARMv7)
+    # Only run if CI workflow succeeded, or if triggered by a tag push
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'push' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

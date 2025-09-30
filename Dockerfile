@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential nodejs npm curl ca-certificates \
+    build-essential nodejs npm curl ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
