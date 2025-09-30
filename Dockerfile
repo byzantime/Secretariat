@@ -13,11 +13,13 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential nodejs npm \
+    build-essential nodejs npm curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy uv from official image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Install uv using standalone installer (supports all platforms including ARM v6/v7)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.local/bin/uv /bin/ && \
+    mv /root/.local/bin/uvx /bin/
 
 # Install dependencies first (separate layer for better caching)
 # Environment markers will automatically exclude packages based on platform
