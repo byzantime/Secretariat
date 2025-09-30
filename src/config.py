@@ -20,9 +20,10 @@ class Config:
     SENTRY_DSN = os.environ.get("SENTRY_DSN")
     QUART_AUTH_COOKIE_SECURE = not DEBUG  # Allow insecure cookies in debug mode
 
-    # Database URL - SQLite database in project root
+    # Database URL - SQLite database in data directory
+    DATA_DIR = os.environ.get("DATA_DIR", ".")
     DATABASE_NAME = os.environ.get("DATABASE_NAME", "secretariat")
-    DATABASE_URL = f"sqlite+aiosqlite:///./{DATABASE_NAME}.db"
+    DATABASE_URL = f"sqlite+aiosqlite:///{DATA_DIR}/{DATABASE_NAME}.db"
 
     # LLM Provider Configuration
     LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openrouter")  # "openrouter" or "zen"

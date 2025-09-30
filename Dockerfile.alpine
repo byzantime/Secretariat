@@ -45,6 +45,9 @@ RUN npm ci && \
     npx tailwindcss -i ./src/static/css/input.css -o ./src/static/css/styles.css --minify && \
     rm -rf node_modules package-lock.json
 
+# Create data directory for persistent storage
+RUN mkdir -p /app/data
+
 # Add entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
