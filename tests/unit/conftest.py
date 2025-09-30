@@ -12,6 +12,12 @@ from src import create_app
 @pytest_asyncio.fixture
 async def app():
     """Create an application for unit testing with mocked dependencies."""
+    import os
+
+    # Set required env vars before app creation (config.py validates these)
+    os.environ.setdefault("LOG_LEVEL", "DEBUG")
+    os.environ.setdefault("SECRET_KEY", "test-secret-key")
+
     # Create the app with test config
     test_config = {
         "TESTING": True,

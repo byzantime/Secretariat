@@ -66,4 +66,7 @@ jobs:
       run: uv pip install --system .[dev]
 
     - name: Run tests
+      env:
+        LOG_LEVEL: DEBUG
+        SECRET_KEY: test-secret-key-for-ci
       run: pytest tests/ -v
