@@ -4,16 +4,10 @@ An open-source AI-powered personal assistant.
 
 ## Installation
 
-Install dependencies:
-
 ```bash
-uv pip install -r requirements.txt
-```
+uv sync               # Install required dependencies
 
-Set up the database:
-
-```bash
-alembic upgrade head
+alembic upgrade head  # Setup the database
 ```
 
 Run the application:
@@ -35,6 +29,8 @@ Done! I've set up a reminder to take the rubbish out every 14 days starting next
 ## Development
 
 ```bash
+uv sync --extra dev  # Install optional dev dependencies
+
 # Run the app using the following command - it activates the venv, rebuilds CSS the starts the app:
 ./local_build.sh
 ```
@@ -110,7 +106,7 @@ The memory system will automatically create the required collection (`memories`)
 ### Updating dependencies:
 
 ```bash
-# First add the new dependency to requirements.in, then:
-uv pip compile requirements.in --output-file requirements.txt
-uv pip install -r requirements.txt
+# Add the new dependency to pyproject.toml [project] dependencies section, then:
+uv lock
+uv sync
 ```

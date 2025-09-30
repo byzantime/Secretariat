@@ -1,28 +1,33 @@
-# Use Debian-based Python runtime for AMD64/ARM64 with full dependency support
-FROM python:3.13-slim-bookworm
+# Use an official Python runtime as a parent image
+FROM python:3.13-alpine
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PATH="/app/.venv/bin:$PATH" \
-    DEBIAN_FRONTEND=noninteractive
+    PATH="/app/.venv/bin:$PATH"
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential nodejs npm curl ca-certificates git \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies and pre-built Python packages
+# Using Alpine packages avoids slow compilation on ARM architectures
+RUN apk add --no-cache \
+    build-base nodejs npm curl bash git \
+    py3-greenlet py3-yaml py3-markupsafe py3-brotli
 
-# Install uv
+# Install uv using standalone installer (supports all platforms including ARM v6/v7)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     mv /root/.local/bin/uv /bin/ && \
     mv /root/.local/bin/uvx /bin/
 
+# Create venv with access to system packages (Alpine APKs)
+RUN uv venv --system-site-packages
+
 # Install dependencies first (separate layer for better caching)
+# Environment markers will automatically exclude packages based on platform
+# System packages (greenlet, yaml, markupsafe, brotli) will be used from Alpine APKs
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \

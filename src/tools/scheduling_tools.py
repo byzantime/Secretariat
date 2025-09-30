@@ -6,13 +6,18 @@ from typing import Dict
 
 from apscheduler.jobstores.base import JobLookupError
 from pydantic_ai import RunContext
+from pydantic_ai.toolsets import FunctionToolset
 from quart import current_app
 
 from src.models.schedule_config import ScheduleConfig
 from src.models.schedule_config import ScheduleType
 from src.models.schedule_config import schedule_config_to_dict
 
+# Create toolset for scheduling tools
+scheduling_toolset = FunctionToolset()
 
+
+@scheduling_toolset.tool
 async def setup_automation(
     ctx: RunContext[Dict[str, Any]],
     agent_instructions: str,
@@ -143,6 +148,7 @@ async def setup_automation(
     }
 
 
+@scheduling_toolset.tool
 async def automations_list(ctx: RunContext[Dict[str, Any]]) -> str:
     """Use this tool to list current automated tasks.
 
@@ -179,6 +185,7 @@ async def automations_list(ctx: RunContext[Dict[str, Any]]) -> str:
     return "\n".join(output)
 
 
+@scheduling_toolset.tool
 async def delete_automation(ctx: RunContext[Dict[str, Any]], task_id: str) -> str:
     """Delete an automated task by its task ID.
 

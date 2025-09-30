@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Install dependencies
+      run: uv pip install --system .[dev]
+
+    - name: Run ruff check
+      run: ruff check .
+
+    - name: Run black check
+      run: black --check .
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22.x"
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build frontend
+      run: npm run build
+
+  test:
+    needs: [lint, frontend]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Install dependencies
+      run: uv pip install --system .[dev]
+
+    - name: Run tests
+      env:
+        LOG_LEVEL: DEBUG
+        SECRET_KEY: test-secret-key-for-ci
+      run: pytest tests/ -v
+
+  docker:
+    name: Docker Build
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      push: ${{ github.event_name != 'pull_request' }}
