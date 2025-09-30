@@ -11,9 +11,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies and pre-built Python packages
+# Using Alpine packages avoids slow compilation on ARM architectures
 RUN apk add --no-cache \
-    build-base nodejs npm curl bash git
+    build-base nodejs npm curl bash git \
+    py3-greenlet py3-yaml py3-markupsafe py3-brotli
 
 # Install uv using standalone installer (supports all platforms including ARM v6/v7)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
@@ -25,7 +27,14 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
+    uv sync --frozen --no-install-project --no-dev && \
+    # Link system packages into venv to avoid rebuilding them
+    ln -sf /usr/lib/python3.*/site-packages/greenlet* .venv/lib/python3.*/site-packages/ && \
+    ln -sf /usr/lib/python3.*/site-packages/yaml* .venv/lib/python3.*/site-packages/ && \
+    ln -sf /usr/lib/python3.*/site-packages/_yaml* .venv/lib/python3.*/site-packages/ && \
+    ln -sf /usr/lib/python3.*/site-packages/markupsafe* .venv/lib/python3.*/site-packages/ && \
+    ln -sf /usr/lib/python3.*/site-packages/brotli* .venv/lib/python3.*/site-packages/ && \
+    ln -sf /usr/lib/python3.*/site-packages/_brotli* .venv/lib/python3.*/site-packages/
 
 # Copy rest of project
 COPY . .

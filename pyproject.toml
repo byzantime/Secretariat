@@ -38,7 +38,6 @@ dependencies = [
     "sentry-sdk",
     "python-telegram-bot[webhooks]",
     "fastembed; platform_machine != 'armv6l' and platform_machine != 'armv7l'",
-    "numpy",
     "qdrant-client; platform_machine != 'armv6l' and platform_machine != 'armv7l'",
     "vaderSentiment",
 ]
