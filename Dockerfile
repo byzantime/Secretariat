@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM debian:testing-slim
+FROM python:3.13-alpine
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,9 +12,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential nodejs npm curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    build-base nodejs npm curl bash
 
 # Install uv using standalone installer (supports all platforms including ARM v6/v7)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
