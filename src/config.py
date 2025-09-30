@@ -5,11 +5,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def env_bool(key: str, default: bool = False) -> bool:
+    """Parse boolean from environment variable."""
+    value = os.environ.get(key, str(default)).lower()
+    return value in ("true", "1", "yes", "on")
+
+
 class Config:
-    DEBUG = os.environ.get("DEBUG", "False") == "True"
+    DEBUG = env_bool("DEBUG", False)
     LOG_LEVEL = os.environ["LOG_LEVEL"]
     SECRET_KEY = os.environ["SECRET_KEY"]
-    VERIFY_SSL = os.environ.get("VERIFY_SSL", "True").lower() == "true"
+    VERIFY_SSL = env_bool("VERIFY_SSL", True)
+    CREATE_TABLES_ON_STARTUP = env_bool("CREATE_TABLES_ON_STARTUP", False)
     SENTRY_DSN = os.environ.get("SENTRY_DSN")
     QUART_AUTH_COOKIE_SECURE = not DEBUG  # Allow insecure cookies in debug mode
 
