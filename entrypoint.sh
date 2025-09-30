@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Create data directory if it doesn't exist
+mkdir -p "${DATA_DIR:-/app/data}"
+
 # Start app
 echo "Starting application..."
 exec hypercorn main:app --bind 0.0.0.0:8080
