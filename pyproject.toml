@@ -24,9 +24,9 @@ dependencies = [
     "python-dotenv",
     "alembic",
     "apscheduler",
-    "browser-use; platform_machine != 'armv6l' and platform_machine != 'armv7l'",
-    "pydantic-ai-slim[duckduckgo]; platform_machine != 'armv6l' and platform_machine != 'armv7l'",
-    "pydantic-ai-slim; platform_machine == 'armv6l' or platform_machine == 'armv7l'",
+    "browser-use; platform_machine != 'armv7l'",
+    "pydantic-ai-slim[duckduckgo]; platform_machine != 'armv7l'",
+    "pydantic-ai-slim; platform_machine == 'armv7l'",
     "aiosqlite",
     "httpx",
     "jinja-ui-kit @ git+https://github.com/byzantime/jinja-ui-kit.git",
@@ -37,8 +37,8 @@ dependencies = [
     "sqlalchemy[asyncio]",
     "sentry-sdk",
     "python-telegram-bot[webhooks]",
-    "fastembed; platform_machine != 'armv6l' and platform_machine != 'armv7l'",
-    "qdrant-client; platform_machine != 'armv6l' and platform_machine != 'armv7l'",
+    "fastembed; platform_machine != 'armv7l'",
+    "qdrant-client; platform_machine != 'armv7l'",
     "vaderSentiment",
 ]
 

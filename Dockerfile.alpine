@@ -1,9 +1,6 @@
 # Use an official Python runtime as a parent image
 FROM python:3.13-alpine
 
-# Accept QEMU_CPU argument for proper armv6 emulation during cross-compilation
-ARG QEMU_CPU
-
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -23,7 +20,7 @@ RUN apk add --no-cache \
     py3-setuptools py3-pip \
     rust cargo
 
-# Install uv using standalone installer (supports all platforms including ARM v6/v7)
+# Install uv using standalone installer (supports all platforms including ARMv7)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     mv /root/.local/bin/uv /bin/ && \
     mv /root/.local/bin/uvx /bin/
