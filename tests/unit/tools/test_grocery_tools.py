@@ -166,7 +166,7 @@ async def test_calculate_predictions(test_db):
 
         assert len(predictions) == 1
         assert predictions[0]["item_name"] == "Milk"
-        assert predictions[0]["priority_score"] > 1.0  # Overdue
+        assert predictions[0]["priority_score"] == 1.0  # Overdue
 
 
 @pytest.mark.asyncio
@@ -185,7 +185,7 @@ async def test_shopping_list_integration(test_db):
             last_purchased_date=date.today() - timedelta(days=10),  # Priority ~0.71
         )
 
-        # Should not appear in predictions (below 0.8 threshold)
+        # Should not appear in predictions (below default 0.5 threshold with 0.71)
         predictions1 = await grocery_service.calculate_predictions(
             session, user_id=user_id, min_priority=0.8
         )
@@ -196,13 +196,52 @@ async def test_shopping_list_integration(test_db):
             session, user_id=user_id, item_name="Chocolate", urgency="high"
         )
 
-        # Should now appear with boosted priority
+        # Should now appear with confidence=1.0 (user already decided to purchase)
         predictions2 = await grocery_service.calculate_predictions(
             session, user_id=user_id, min_priority=0.8
         )
         assert len(predictions2) == 1
         assert predictions2[0]["is_urgent"] is True
         assert predictions2[0]["urgency_level"] == "high"
+        assert (
+            predictions2[0]["priority_score"] == 1.0
+        )  # Shopping list items always max confidence
+
+
+@pytest.mark.asyncio
+async def test_shopping_list_overrides_low_priority(test_db):
+    """Test that shopping list sets confidence to 1.0 even for just-purchased items."""
+    async with test_db() as session:
+        user_id = 1
+
+        # Create item that was just purchased (priority should be ~0.14)
+        await GroceryItem.create_item(
+            session,
+            user_id=user_id,
+            name="Orange Juice",
+            base_frequency_days=14,
+            typical_quantity=1.0,
+            last_purchased_date=date.today() - timedelta(days=2),  # Just bought
+        )
+
+        # Should not appear in predictions (way below 0.5 threshold)
+        predictions1 = await grocery_service.calculate_predictions(
+            session, user_id=user_id, min_priority=0.5
+        )
+        assert len(predictions1) == 0
+
+        # Add to shopping list
+        await grocery_service.add_to_shopping_list(
+            session, user_id=user_id, item_name="Orange Juice", urgency="normal"
+        )
+
+        # Should appear with confidence=1.0 regardless of purchase history
+        predictions2 = await grocery_service.calculate_predictions(
+            session, user_id=user_id, min_priority=0.5
+        )
+        assert len(predictions2) == 1
+        assert predictions2[0]["priority_score"] == 1.0
+        assert predictions2[0]["is_urgent"] is True
 
 
 @pytest.mark.asyncio

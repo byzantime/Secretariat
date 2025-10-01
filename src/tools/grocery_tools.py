@@ -46,7 +46,7 @@ class PredictionFilters(BaseModel):
     """Filters for shopping predictions."""
 
     min_priority: float = Field(
-        0.8, description="Minimum priority score (0-2+), default 0.8"
+        0.5, description="Minimum confidence threshold (0-1 scale), default 0.5"
     )
     include_shopping_list: bool = Field(
         True, description="Include urgent shopping list items"
@@ -171,14 +171,14 @@ async def get_shopping_predictions(
     - User is planning a shopping trip
 
     The tool will:
-    1. Calculate priority scores based on days since last purchase vs expected frequency
-    2. Include items from urgent shopping list (with boosted priority)
-    3. Return items sorted by priority
+    1. Calculate confidence scores (0-1) based on days since last purchase vs expected frequency
+    2. Include items from urgent shopping list (with boosted confidence)
+    3. Return items sorted by confidence
 
-    Priority score explained:
-    - 1.0 = exactly at expected purchase interval
-    - >1.0 = overdue (higher = more overdue)
-    - <1.0 = not yet due (with 0.8 threshold by default)
+    Confidence score explained (0-1 scale):
+    - 0.0 = just purchased (least important)
+    - 0.5 = halfway through expected cycle
+    - 1.0 = at or past expected repurchase time (entirely used up)
 
     Returns formatted predictions with reasoning.
     """
@@ -210,22 +210,9 @@ async def get_shopping_predictions(
             lines = ["📋 Shopping Predictions:\n"]
 
             for i, pred in enumerate(predictions, 1):
-                # Priority emoji
-                priority = pred["priority_score"]
-                if priority >= 1.5:
-                    priority_emoji = "🔴"
-                elif priority >= 1.2:
-                    priority_emoji = "🟠"
-                elif priority >= 1.0:
-                    priority_emoji = "🟡"
-                else:
-                    priority_emoji = ""
-
-                # Item name with priority
-                lines.append(
-                    f"{i}. **{pred['item_name']}** (Priority: {priority})"
-                    f" {priority_emoji}"
-                )
+                # Item name with confidence
+                confidence = pred["priority_score"]
+                lines.append(f"{i}. **{pred['item_name']}** (Confidence: {confidence})")
 
                 # Quantity
                 if pred["quantity"] and pred["unit_type"]:
@@ -432,7 +419,8 @@ async def adjust_item_frequency(
 
             direction = "less often" if adjustment_weeks > 0 else "more often"
             weeks_text = (
-                f"{abs(adjustment_weeks)} week{'s' if abs(adjustment_weeks) != 1 else ''}"
+                f"{abs(adjustment_weeks)}"
+                f" week{'s' if abs(adjustment_weeks) != 1 else ''}"
             )
 
             return (
@@ -541,62 +529,51 @@ async def get_item_history(
 
     db = current_app.extensions["database"]
     async with db.session_factory() as session:
-        try:
-            history = await grocery_service.get_item_history(
-                session, user_id=user_id, item_name=item_name, limit=limit
-            )
+        history = await grocery_service.get_item_history(
+            session, user_id=user_id, item_name=item_name, limit=limit
+        )
 
-            if not history:
-                return f"No purchase history found for '{item_name}'."
+        if not history:
+            return f"No purchase history found for '{item_name}'."
 
-            # Format response
-            lines = [f"📊 Purchase History: {history['item_name']}\n"]
+        # Format response
+        lines = [f"📊 Purchase History: {history['item_name']}\n"]
 
-            # Frequency settings
-            lines.append("Frequency Settings:")
-            if history["base_frequency"]:
-                lines.append(
-                    f"- Base frequency: {history['base_frequency']} days (learned)"
-                )
-            else:
-                lines.append("- Base frequency: Not yet calculated (need 2+ purchases)")
-
-            lines.append(f"- User adjustment: {history['user_adjustment']:+d} days")
+        # Frequency settings
+        lines.append("Frequency Settings:")
+        if history["base_frequency"]:
             lines.append(
-                f"- Effective frequency: {history['effective_frequency']} days\n"
+                f"- Base frequency: {history['base_frequency']} days (learned)"
             )
+        else:
+            lines.append("- Base frequency: Not yet calculated (need 2+ purchases)")
 
-            # Recent purchases
-            if history["recent_purchases"]:
+        lines.append(f"- User adjustment: {history['user_adjustment']:+d} days")
+        lines.append(f"- Effective frequency: {history['effective_frequency']} days\n")
+
+        # Recent purchases
+        if history["recent_purchases"]:
+            lines.append(f"Recent Purchases (last {len(history['recent_purchases'])}):")
+            for i, purchase in enumerate(history["recent_purchases"], 1):
+                price_text = ""
+                if purchase["unit_price"]:
+                    price_text = f" @ ${purchase['unit_price']:.2f}"
+
                 lines.append(
-                    f"Recent Purchases (last {len(history['recent_purchases'])}):"
+                    f"{i}. {purchase['date']} -"
+                    f" {purchase['quantity']}{price_text} ({purchase['supermarket']})"
                 )
-                for i, purchase in enumerate(history["recent_purchases"], 1):
-                    price_text = ""
-                    if purchase["unit_price"]:
-                        price_text = f" @ ${purchase['unit_price']:.2f}"
+            lines.append("")
 
-                    lines.append(
-                        f"{i}. {purchase['date']} -"
-                        f" {purchase['quantity']}{price_text} ({purchase['supermarket']})"
-                    )
-                lines.append("")
+        # Statistics
+        stats = history["statistics"]
+        lines.append("Statistics:")
+        if stats["avg_interval_days"]:
+            lines.append(f"- Average interval: {stats['avg_interval_days']:.1f} days")
+        if stats["avg_quantity"]:
+            lines.append(f"- Average quantity: {stats['avg_quantity']:.1f}")
+        if stats["common_quantity"]:
+            lines.append(f"- Most common quantity: {stats['common_quantity']}")
+        lines.append(f"- Total purchases: {stats['total_purchases']}")
 
-            # Statistics
-            stats = history["statistics"]
-            lines.append("Statistics:")
-            if stats["avg_interval_days"]:
-                lines.append(
-                    f"- Average interval: {stats['avg_interval_days']:.1f} days"
-                )
-            if stats["avg_quantity"]:
-                lines.append(f"- Average quantity: {stats['avg_quantity']:.1f}")
-            if stats["common_quantity"]:
-                lines.append(f"- Most common quantity: {stats['common_quantity']}")
-            lines.append(f"- Total purchases: {stats['total_purchases']}")
-
-            return "\n".join(lines)
-
-        except Exception as e:
-            current_app.logger.error(f"Error getting item history: {e}")
-            return f"Error getting item history: {str(e)}"
+        return "\n".join(lines)

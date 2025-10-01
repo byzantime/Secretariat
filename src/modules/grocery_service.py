@@ -194,7 +194,7 @@ async def record_order(
 async def calculate_predictions(
     session: AsyncSession,
     user_id: int,
-    min_priority: float = 0.8,
+    min_priority: float = 0.5,
     include_shopping_list: bool = True,
 ) -> List[Dict]:
     """Generate shopping predictions based on purchase frequency.
@@ -202,7 +202,7 @@ async def calculate_predictions(
     Args:
         session: Database session
         user_id: User ID
-        min_priority: Minimum priority score threshold (default 0.8)
+        min_priority: Minimum priority score threshold (0-1 scale, default 0.5)
         include_shopping_list: Include urgent shopping list items (default True)
 
     Returns:
@@ -210,7 +210,7 @@ async def calculate_predictions(
             - item_name
             - quantity
             - unit_type
-            - priority_score
+            - priority_score: 0-1 (0=just purchased, 1=entirely used up)
             - days_since_last_purchase
             - expected_frequency_days
             - is_urgent
@@ -248,18 +248,18 @@ async def calculate_predictions(
         # Calculate days since last purchase
         days_since = (today - item.last_purchased_date).days
 
-        # Calculate priority score
-        priority_score = days_since / effective_frequency
+        # Calculate priority score (0-1 scale: 0=just purchased, 1=entirely used up)
+        priority_score = min(days_since / effective_frequency, 1.0)
 
         # Check if on shopping list
         is_urgent = item.id in shopping_list_items
         urgency_level = shopping_list_items.get(item.id, "normal")
 
-        # Boost priority if on shopping list
+        # Set to maximum confidence if on shopping list (user already decided to purchase)
         if is_urgent:
-            priority_score *= 1.5
+            priority_score = 1.0
 
-        # Apply threshold (default 80% of expected frequency)
+        # Apply confidence threshold (default 0.5)
         if priority_score >= min_priority:
             predictions.append({
                 "item_name": item.name,
