@@ -1,5 +1,4 @@
-"""
-Conversational AI memory system.
+"""Conversational AI memory system.
 
 Memories have the following vectors:
 - role - user or assistant;

@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is a Quart-based AI agent application with HTMX frontend, SQLite database, and Anthropic Claude integration. Built as a foundation for AI-powered web applications.
+This is a Quart-based AI personal assistant application with HTMX frontend and SQLite database.
 
 ### Key Components
 
@@ -18,37 +18,24 @@ This is a Quart-based AI agent application with HTMX frontend, SQLite database, 
 - **Database**: SQLite with SQLAlchemy ORM and Alembic migrations
 - **Frontend**: HTMX + Tailwind CSS for reactive UI
 - **Authentication**: Quart-Auth with session management
-- **LLM Integration**: Anthropic Claude API via async client
+- **LLM Integration**: Pydantic AI
 - **Tool System**: Extensible tool framework for AI agent capabilities
-
-### Application Structure
-
-```
-src/
-├── __init__.py              # Application factory (create_app)
-├── config.py               # Environment-based configuration
-├── routes.py               # Main blueprint registration
-├── extensions.py           # Extension initialization order
-├── blueprints/            # Route blueprints
-│   └── auth.py           # Authentication routes
-├── models/               # Database models
-│   ├── user.py          # User model and manager
-│   └── organisation.py  # Organisation model
-├── modules/             # Core services
-│   ├── database.py      # Database connection management
-│   ├── llm_service.py   # Anthropic Claude integration
-│   └── tool_manager.py  # AI tool system
-├── tools/              # AI agent tools
-│   └── fallback_tool.py # Default tool for unknown calls
-└── templates/          # Jinja2 templates with HTMX
-```
+- **Telegram Bot**: python-telegram-bot with webhook support
+- **Scheduling**: APScheduler for recurring tasks
+- **Memory System**: Vector embeddings (FastEmbed) with Qdrant client
+- **Browser Automation**: browser-use for web interactions
+- **Multi-platform**: Docker builds for AMD64, ARM64, ARMv6, ARMv7
 
 ## Development Commands
 
 ### Environment Setup
 ```bash
-# Install Python dependencies
+# Install Python dependencies (preferred)
 uv sync
+
+# Run commands with uv
+uv run python main.py
+uv run pytest
 
 # Install Node.js dependencies and build CSS
 npm ci
@@ -75,12 +62,15 @@ npm run build
 
 ### Running the Application
 ```bash
-# Development server
+# Development server (with auto-reload)
 python main.py
 
-# Production server (via Docker)
-docker build -t secretariat .
-docker run -p 8080:8080 secretariat
+# Using uv
+uv run python main.py
+
+# Docker (see BUILD.md for platform-specific builds)
+docker pull ghcr.io/byzantime/secretariat:latest
+docker run -p 8080:8080 ghcr.io/byzantime/secretariat:latest
 ```
 
 ### Code Quality
@@ -97,43 +87,75 @@ pytest
 
 ## Key Architectural Patterns
 
-### Extension Initialization Order
-Extensions in `src/extensions.py` must be initialized in dependency order:
-1. Compress, Assets, Logging
-2. Database (required by user management)
-3. User Manager, Tool Manager
-4. LLM Service (depends on tools)
-
 ### Tool System
-- All tools inherit from `Tool` abstract base class in `tool_manager.py`
-- Tools are automatically registered during `ToolManager.init_app()`
-- Fallback tool handles unknown tool calls gracefully
-- Tools can implement conditional availability via `is_available()`
+- Tools in `src/tools/`: browser_tools, memory_tools, scheduling_tools, todo_tools
+- Pydantic AI tools pattern used for LLM integration
+- Tools can be platform-conditional (e.g., browser tools unavailable on Alpine builds)
 
-### HTMX Integration
-- Flash messages automatically injected into HTMX responses via `inject_flash_messages_for_htmx`
-- Out-of-band swaps used for dynamic UI updates
+### LLM Provider System
+- Custom providers in `src/providers/` (e.g., zen_provider.py)
+- Built on Pydantic AI framework
+- Agent instructions customizable via `agent_instructions.txt`
+
+### Memory & Vector Search
+- Vector embeddings via FastEmbed (with fallback on ARMv6/ARMv7)
+- Memory storage and retrieval in `src/modules/memory.py`
+- Conversation tracking via `conversation_manager.py`
+
+### Scheduling System
+- APScheduler integration for recurring tasks
+- Scheduled tasks stored in database (models/scheduled_task.py)
+- Event-driven architecture via `event_handler.py`
+
+### Multi-Channel Interface
+- Web UI: HTMX + Tailwind CSS
+- Telegram Bot: Webhook-based integration
 - Templates use `jinja-ui-kit` for consistent components
 
-### Database Models
-- User model supports authentication via `UserManager`
-- Models use SQLAlchemy with async support (asyncpg)
-- Database URL constructed from individual env vars
+### Platform Support
+- Debian images (AMD64/ARM64): Full features including FastEmbed, browser automation
+- Alpine images (ARMv6/ARMv7): Core features with fallbacks
+- See BUILD.md for detailed platform guide
 
 ## Environment Variables
 
 Required:
-- `SECRET_KEY`: Flask session encryption
+- `SECRET_KEY`: Session encryption
 - `DATABASE_*`: SQLite connection details
 
 Optional:
 - `DEBUG`: Enable debug mode (default: False)
 - `SENTRY_DSN`: Error tracking
 - `LOG_LEVEL`: Logging level (default: INFO)
+- `TELEGRAM_BOT_TOKEN`: Telegram bot integration
+- `TELEGRAM_WEBHOOK_URL`: Webhook endpoint for Telegram
 
 ## Testing
 
-- Uses pytest with asyncio support
-- Test markers: `asyncio`, `integration`, `stress`
-- Test configuration in `pyproject.toml`
-- Never attempt to start a development server - the app is already running locally with auto-reload
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=src
+
+# Run specific test markers
+pytest -m integration
+pytest -m stress
+```
+
+Configuration:
+- Markers: `asyncio`, `integration`, `stress`
+- Configuration in `pyproject.toml`
+- Async test support via pytest-asyncio
+
+## Project Structure
+
+Key directories:
+- `src/blueprints/`: Route handlers (auth, telegram, core)
+- `src/models/`: Database models (user, scheduled_task, schedule_config)
+- `src/modules/`: Core services (llm_service, memory, scheduling_service, etc.)
+- `src/tools/`: AI agent tools (browser, memory, scheduling, todo)
+- `src/providers/`: Custom LLM providers
+- `migrations/`: Alembic database migrations
+- `tests/`: Test suite

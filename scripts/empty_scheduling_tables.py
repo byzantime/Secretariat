@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-Script to empty scheduling-related database tables.
-"""
+"""Script to empty scheduling-related database tables."""
 
 import asyncio
 import sys

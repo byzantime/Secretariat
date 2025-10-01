@@ -132,9 +132,7 @@ class EmailService:
         reply_to: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
     ) -> bool:
-        """
-        Send email via SMTP with full configuration support.
-        """
+        """Send email via SMTP with full configuration support."""
         try:
             to = self._normalise_list(recipients)
             cc = self._normalise_list(cc_addresses)
