@@ -100,10 +100,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest-alpine,enable={{is_default_branch}}
-            type=semver,pattern={{version}}-alpine
-            type=semver,pattern={{major}}.{{minor}}-alpine
-            type=semver,pattern={{major}}-alpine
+            type=raw,value=latest-armv6,enable={{is_default_branch}}
+            type=semver,pattern={{version}}-armv6
+            type=semver,pattern={{major}}.{{minor}}-armv6
+            type=semver,pattern={{major}}-armv6
 
       - name: Build and push Alpine ARMv6 Docker image
         uses: docker/build-push-action@v5
@@ -155,10 +155,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest-alpine,enable={{is_default_branch}}
-            type=semver,pattern={{version}}-alpine
-            type=semver,pattern={{major}}.{{minor}}-alpine
-            type=semver,pattern={{major}}-alpine
+            type=raw,value=latest-armv7,enable={{is_default_branch}}
+            type=semver,pattern={{version}}-armv7
+            type=semver,pattern={{major}}.{{minor}}-armv7
+            type=semver,pattern={{major}}-armv7
 
       - name: Build and push Alpine ARMv7 Docker image
         uses: docker/build-push-action@v5
