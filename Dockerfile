@@ -1,4 +1,4 @@
-# Use Debian-based Python runtime for AMD64/ARM64 with full dependency support
+# Use Debian-based Python runtime for AMD64 only
 FROM python:3.13-slim-bookworm
 
 # Set environment variables
