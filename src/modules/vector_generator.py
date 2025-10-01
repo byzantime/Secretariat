@@ -1,5 +1,4 @@
-"""
-Vector generation module for the memory system.
+"""Vector generation module for the memory system.
 
 Provides semantic, temporal, and contextual vector generation capabilities
 for creating meaningful embeddings from text content and metadata.
@@ -304,8 +303,7 @@ def generate_vectors(
     context_tags: Optional[List[str]] = None,
     role: str = "user",
 ) -> Dict[str, List[float]]:
-    """
-    Convenience function to generate all vector types.
+    """Convenience function to generate all vector types.
 
     Creates a VectorGenerator instance and generates vectors for the given content.
 

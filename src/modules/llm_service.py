@@ -91,6 +91,7 @@ class LLMService:
 
         # Import all toolsets
         from src.tools.browser_tools import browser_toolset
+        from src.tools.grocery_tools import grocery_toolset
         from src.tools.memory_tools import memory_toolset
         from src.tools.scheduling_tools import scheduling_toolset
         from src.tools.todo_tools import todo_toolset
@@ -105,6 +106,7 @@ class LLMService:
             tools=[duckduckgo_search_tool()],
             toolsets=[
                 browser_toolset,
+                grocery_toolset,
                 memory_toolset,
                 todo_toolset,
                 scheduling_toolset,

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Script to add Unix timestamps to sample data memories and export as CSV.
+"""Script to add Unix timestamps to sample data memories and export as CSV.
 
 This script:
 1. Loads memories from src/modules/sample_data.py
@@ -38,8 +37,7 @@ def generate_random_timestamp():
 
 
 def add_timestamps_to_memories():
-    """
-    Add timestamps to memories data.
+    """Add timestamps to memories data.
 
     Returns:
         List of tuples: (utterance, role, unix_timestamp)
@@ -88,8 +86,7 @@ def add_timestamps_to_memories():
 
 
 def export_to_csv(timestamped_memories, output_file="memories_with_timestamps.csv"):
-    """
-    Export timestamped memories to CSV file.
+    """Export timestamped memories to CSV file.
 
     Args:
         timestamped_memories: List of tuples (utterance, role, unix_timestamp)
