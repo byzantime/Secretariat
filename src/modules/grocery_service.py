@@ -21,29 +21,24 @@ from src.models.grocery import ShoppingList
 logger = logging.getLogger(__name__)
 
 
-async def find_or_create_item(
-    session: AsyncSession, user_id: int, name: str
-) -> GroceryItem:
+async def find_or_create_item(session: AsyncSession, name: str) -> GroceryItem:
     """Find existing grocery item by name (case-insensitive) or create new one.
 
     Args:
         session: Database session
-        user_id: User ID
         name: Item name (case-insensitive)
 
     Returns:
         GroceryItem instance
     """
     # Try to find existing item (case-insensitive)
-    item = await GroceryItem.get_by_user_and_name(session, user_id, name)
+    item = await GroceryItem.get_by_name(session, name)
 
     if not item:
         # Create new item with normalized name (capitalize each word)
         normalized_name = " ".join(word.capitalize() for word in name.split())
-        item = await GroceryItem.create_item(
-            session, user_id=user_id, name=normalized_name
-        )
-        logger.info(f"Created new grocery item: {normalized_name} for user {user_id}")
+        item = await GroceryItem.create_item(session, name=normalized_name)
+        logger.info(f"Created new grocery item: {normalized_name}")
 
     return item
 
@@ -116,7 +111,6 @@ async def update_item_frequency(session: AsyncSession, item_id: int) -> None:
 
 async def record_order(
     session: AsyncSession,
-    user_id: int,
     supermarket: str,
     items: List[Dict],
     order_date: Optional[date] = None,
@@ -126,7 +120,6 @@ async def record_order(
 
     Args:
         session: Database session
-        user_id: User ID
         supermarket: Supermarket name
         items: List of dicts with keys: name, quantity, unit_price (optional), total_price (optional)
         order_date: Order date (defaults to today)
@@ -138,10 +131,8 @@ async def record_order(
     if order_date is None:
         order_date = date.today()
 
-    # Create order
     order = await GroceryOrder.create_order(
         session,
-        user_id=user_id,
         supermarket=supermarket,
         order_date=order_date,
         total_cost=total_cost,
@@ -149,12 +140,9 @@ async def record_order(
 
     updated_frequencies = 0
 
-    # Process each item
     for item_data in items:
-        # Find or create grocery item
-        grocery_item = await find_or_create_item(session, user_id, item_data["name"])
+        grocery_item = await find_or_create_item(session, item_data["name"])
 
-        # Create order item
         await OrderItem.create_order_item(
             session,
             order_id=order.id,
@@ -176,9 +164,7 @@ async def record_order(
             updated_frequencies += 1
 
         # Remove from shopping list if present
-        shopping_entry = await ShoppingList.get_by_user_and_item(
-            session, user_id, grocery_item.id
-        )
+        shopping_entry = await ShoppingList.get_by_item(session, grocery_item.id)
         if shopping_entry:
             await shopping_entry.delete(session)
             logger.debug(f"Removed {grocery_item.name} from shopping list")
@@ -193,7 +179,6 @@ async def record_order(
 
 async def calculate_predictions(
     session: AsyncSession,
-    user_id: int,
     min_priority: float = 0.5,
     include_shopping_list: bool = True,
 ) -> List[Dict]:
@@ -201,7 +186,6 @@ async def calculate_predictions(
 
     Args:
         session: Database session
-        user_id: User ID
         min_priority: Minimum priority score threshold (0-1 scale, default 0.5)
         include_shopping_list: Include urgent shopping list items (default True)
 
@@ -220,13 +204,12 @@ async def calculate_predictions(
     today = date.today()
     predictions = []
 
-    # Get all grocery items for user
-    items = await GroceryItem.get_all_by_user(session, user_id)
+    items = await GroceryItem.get_all(session)
 
     # Get shopping list items for fast lookup
     shopping_list_items = {}
     if include_shopping_list:
-        shopping_entries = await ShoppingList.get_all_by_user(session, user_id)
+        shopping_entries = await ShoppingList.get_all(session)
         shopping_list_items = {
             entry.item_id: entry.urgency for entry in shopping_entries
         }
@@ -279,27 +262,26 @@ async def calculate_predictions(
     # Sort by priority descending
     predictions.sort(key=lambda x: x["priority_score"], reverse=True)
 
-    logger.info(f"Generated {len(predictions)} predictions for user {user_id}")
+    logger.info(f"Generated {len(predictions)} predictions")
     return predictions
 
 
 async def adjust_item_frequency(
-    session: AsyncSession, user_id: int, item_name: str, adjustment_weeks: int
+    session: AsyncSession, item_name: str, adjustment_weeks: int
 ) -> Optional[GroceryItem]:
     """Adjust item frequency by user feedback.
 
     Args:
         session: Database session
-        user_id: User ID
         item_name: Item name (case-insensitive)
         adjustment_weeks: Weeks to adjust (positive = less often, negative = more often)
 
     Returns:
         Updated GroceryItem or None if not found
     """
-    item = await GroceryItem.get_by_user_and_name(session, user_id, item_name)
+    item = await GroceryItem.get_by_name(session, item_name)
     if not item:
-        logger.warning(f"Item '{item_name}' not found for user {user_id}")
+        logger.warning(f"Item '{item_name}' not found")
         return None
 
     adjustment_days = adjustment_weeks * 7
@@ -317,55 +299,47 @@ async def adjust_item_frequency(
 
 async def add_to_shopping_list(
     session: AsyncSession,
-    user_id: int,
     item_name: str,
     quantity: Optional[float] = None,
     urgency: str = "normal",
     notes: Optional[str] = None,
-) -> ShoppingList:
+) -> Tuple[ShoppingList, str]:
     """Add or update item in shopping list.
 
     Args:
         session: Database session
-        user_id: User ID
         item_name: Item name (will find or create)
         quantity: Quantity needed (optional)
         urgency: Urgency level ('low', 'normal', 'high')
         notes: User notes (optional)
 
     Returns:
-        ShoppingList entry
+        Tuple of (ShoppingList entry, item name)
     """
-    # Find or create grocery item
-    item = await find_or_create_item(session, user_id, item_name)
+    item = await find_or_create_item(session, item_name)
 
-    # Check if already in shopping list
-    existing = await ShoppingList.get_by_user_and_item(session, user_id, item.id)
+    existing = await ShoppingList.get_by_item(session, item.id)
 
     if existing:
-        # Update existing entry
         await existing.update(
             session, quantity_needed=quantity, urgency=urgency, notes=notes
         )
         logger.info(f"Updated {item.name} in shopping list (urgency: {urgency})")
-        return existing
+        return existing, item.name
     else:
-        # Create new entry
         entry = await ShoppingList.create_entry(
             session,
-            user_id=user_id,
             item_id=item.id,
             quantity_needed=quantity,
             urgency=urgency,
             notes=notes,
         )
         logger.info(f"Added {item.name} to shopping list (urgency: {urgency})")
-        return entry
+        return entry, item.name
 
 
 async def remove_from_shopping_list(
     session: AsyncSession,
-    user_id: int,
     item_name: str,
     adjust_frequency: bool = False,
     frequency_adjustment_weeks: int = 2,
@@ -374,7 +348,6 @@ async def remove_from_shopping_list(
 
     Args:
         session: Database session
-        user_id: User ID
         item_name: Item name (case-insensitive)
         adjust_frequency: Whether to adjust frequency (default False)
         frequency_adjustment_weeks: Weeks to push out (default 2)
@@ -382,19 +355,17 @@ async def remove_from_shopping_list(
     Returns:
         Success message or None if not found
     """
-    item = await GroceryItem.get_by_user_and_name(session, user_id, item_name)
+    item = await GroceryItem.get_by_name(session, item_name)
     if not item:
-        logger.warning(f"Item '{item_name}' not found for user {user_id}")
+        logger.warning(f"Item '{item_name}' not found")
         return None
 
-    # Remove from shopping list
-    shopping_entry = await ShoppingList.get_by_user_and_item(session, user_id, item.id)
+    shopping_entry = await ShoppingList.get_by_item(session, item.id)
     if shopping_entry:
         await shopping_entry.delete(session)
 
     message = f"Removed {item.name} from shopping list"
 
-    # Optionally adjust frequency
     if adjust_frequency:
         adjustment_days = frequency_adjustment_weeks * 7
         new_adjustment = (item.frequency_adjustment_days or 0) + adjustment_days
@@ -406,20 +377,19 @@ async def remove_from_shopping_list(
 
 
 async def get_item_history(
-    session: AsyncSession, user_id: int, item_name: str, limit: int = 10
+    session: AsyncSession, item_name: str, limit: int = 10
 ) -> Optional[Dict]:
     """Get purchase history and statistics for an item.
 
     Args:
         session: Database session
-        user_id: User ID
         item_name: Item name (case-insensitive)
         limit: Max number of recent purchases to return (default 10)
 
     Returns:
         Dict with history data or None if not found
     """
-    item = await GroceryItem.get_by_user_and_name(session, user_id, item_name)
+    item = await GroceryItem.get_by_name(session, item_name)
     if not item:
         return None
 
