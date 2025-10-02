@@ -7,8 +7,8 @@ from zoneinfo import ZoneInfo
 
 from pydantic_ai import Agent
 from pydantic_ai import RunContext
-from pydantic_ai import capture_run_messages
 from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
+from pydantic_ai.messages import TextPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
@@ -256,34 +256,57 @@ class LLMService:
                     {"message_id": message_id, "content": ""},
                 )
 
-            # Use capture_run_messages to debug system prompts
-            with capture_run_messages() as captured_messages:
-                try:
-                    # Use streaming for interactive tasks
-                    async with self.agent.run_stream(
-                        user_prompt=agent_instructions,
-                        message_history=message_history,
-                        deps=deps,
-                    ) as result:
-                        async for text in result.stream_text():
-                            # Accumulate the full response
-                            full_response = text
+            try:
+                # Using iter() instead of run_stream() ensures the agent continues
+                # execution after tool calls.
+                async with self.agent.iter(
+                    user_prompt=agent_instructions,
+                    message_history=message_history,
+                    deps=deps,
+                ) as agent_run:
+                    # Iterate through execution nodes
+                    async for node in agent_run:
+                        # Check for CallToolsNode which contains ModelResponse
+                        if Agent.is_call_tools_node(node):
+                            # Extract text from ModelResponse parts
+                            for part in node.model_response.parts:
+                                if isinstance(part, TextPart):
+                                    # Accumulate and stream text content
+                                    full_response = part.content
 
-                            # Emit message chunk events for streaming updates (if enabled)
-                            if emit_events:
-                                await event_handler.emit_to_services(
-                                    "llm.message.chunk",
-                                    {
-                                        "message_id": message_id,
-                                        "content": text,
-                                    },
-                                )
-                except Exception as e:
-                    current_app.logger.error(f"Error during agent run: {e}")
-                    current_app.logger.error(
-                        f"Captured messages on error: {captured_messages}"
-                    )
-                    raise
+                                    if emit_events:
+                                        await event_handler.emit_to_services(
+                                            "llm.message.chunk",
+                                            {
+                                                "message_id": message_id,
+                                                "content": full_response,
+                                            },
+                                        )
+
+                        # Check for End node which contains the final result
+                        elif Agent.is_end_node(node):
+                            # Extract final text if available
+                            if hasattr(node.data, "output") and isinstance(
+                                node.data.output, str
+                            ):
+                                full_response = node.data.output
+
+                                if emit_events:
+                                    await event_handler.emit_to_services(
+                                        "llm.message.chunk",
+                                        {
+                                            "message_id": message_id,
+                                            "content": full_response,
+                                        },
+                                    )
+
+                    # After iteration completes, get the AgentRunResult from agent_run.result
+                    # This has all_messages(), new_messages(), and usage properties
+                    result = agent_run.result
+
+            except Exception as e:
+                current_app.logger.error(f"Error during agent run: {e}", exc_info=True)
+                raise
 
             if emit_events:
                 # Emit message complete event
@@ -294,43 +317,41 @@ class LLMService:
 
             # Log tool usage information
             tool_calls = []
-            if hasattr(result, "new_messages"):
-                for msg in result.new_messages():
-                    if hasattr(msg, "parts"):
-                        for part in msg.parts:
-                            # Check for ToolCallPart in message parts
-                            if (
-                                hasattr(part, "part_kind")
-                                and part.part_kind == "tool-call"
-                            ):
-                                tool_info = {
-                                    "tool_name": part.tool_name,
-                                    "tool_args": getattr(part, "args", {}),
-                                }
-                                tool_calls.append(tool_info)
+            # Use result for accessing messages (AgentRunResult has new_messages() method)
+            for msg in result.new_messages():
+                for part in msg.parts:
+                    # Check for ToolCallPart in message parts
+                    if part.part_kind == "tool-call":
+                        tool_info = {
+                            "tool_name": part.tool_name,
+                            "tool_args": getattr(part, "args", {}),
+                        }
+                        tool_calls.append(tool_info)
+
+            if emit_events:
+                # Emit tool called events
+                for tool_call in tool_calls:
+                    await event_handler.emit_to_services(
+                        "llm.tool.called",
+                        {
+                            "tool_name": tool_call["tool_name"],
+                            "tool_args": tool_call["tool_args"],
+                        },
+                    )
+                    current_app.logger.info(f"🔧 TOOL CALLED: {tool_call}")
 
             if tool_calls:
-                if emit_events:
-                    # Emit tool called events
-                    for tool_call in tool_calls:
-                        await event_handler.emit_to_services(
-                            "llm.tool.called",
-                            {
-                                "tool_name": tool_call["tool_name"],
-                                "tool_args": tool_call["tool_args"],
-                            },
-                        )
-                        current_app.logger.info(f"🔧 TOOL CALLED: {tool_call}")
                 # Log summary of unique tools used (always)
                 unique_tools = set(tc["tool_name"] for tc in tool_calls)
                 current_app.logger.info(f"🔧 TOOLS USED: {', '.join(unique_tools)}")
 
             conversation = deps.get("conversation")
-            # Always update token counts
+            # Always update token counts using result (AgentRunResult has usage property)
             if conversation is not None:
                 await self._update_token_counts(conversation, result)
 
             # Store the run result for future message history (if enabled)
+            # Use result which has all_messages() method
             if conversation is not None and store_result:
                 conversation.store_run_result(result)
 

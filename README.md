@@ -2,20 +2,13 @@
 
 An open-source AI-powered personal assistant.
 
-## Installation
+## Running Secretariat
 
 ```bash
 uv sync               # Install required dependencies
-
 alembic upgrade head  # Setup the database
+python main.py        # The application will now run on http://localhost:5000
 ```
-
-Run the application:
-
-```bash
-python main.py
-```
-The app will run on http://localhost:5000
 
 ### Scheduling tasks:
 
