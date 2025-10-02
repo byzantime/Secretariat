@@ -46,10 +46,10 @@ class PredictionFilters(BaseModel):
     """Filters for shopping predictions."""
 
     min_priority: float = Field(
-        0.5, description="Minimum confidence threshold (0-1 scale), default 0.5"
+        default=0.5, description="Minimum confidence threshold (0-1 scale), default 0.5"
     )
     include_shopping_list: bool = Field(
-        True, description="Include urgent shopping list items"
+        default=True, description="Include urgent shopping list items"
     )
 
 
@@ -95,13 +95,6 @@ async def record_grocery_order(
         f"🔧 TOOL CALLED: record_grocery_order for {order_data.supermarket}"
     )
 
-    conversation = ctx.deps.get("conversation")
-    if not conversation:
-        return "Error: No conversation context available."
-
-    user_id = conversation.user_id
-
-    # Parse order date if provided
     order_date = None
     if order_data.order_date:
         try:
@@ -111,7 +104,6 @@ async def record_grocery_order(
                 f"Error: Invalid date format '{order_data.order_date}'. Use YYYY-MM-DD."
             )
 
-    # Convert Pydantic items to dicts
     items = [
         {
             "name": item.name,
@@ -122,20 +114,17 @@ async def record_grocery_order(
         for item in order_data.items
     ]
 
-    # Get database session
     db = current_app.extensions["database"]
     async with db.session_factory() as session:
         try:
             order, updated_count = await grocery_service.record_order(
                 session,
-                user_id=user_id,
                 supermarket=order_data.supermarket,
                 items=items,
                 order_date=order_date,
                 total_cost=order_data.total_cost,
             )
 
-            # Build response
             response = (
                 f"✅ Recorded order from {order_data.supermarket} with"
                 f" {len(items)} items."
@@ -161,7 +150,7 @@ async def record_grocery_order(
 
 @grocery_toolset.tool
 async def get_shopping_predictions(
-    ctx: RunContext[dict], filters: PredictionFilters = PredictionFilters()
+    ctx: RunContext[dict], filters: PredictionFilters | None = None
 ) -> str:
     """Generate shopping predictions based on purchase patterns.
 
@@ -184,18 +173,14 @@ async def get_shopping_predictions(
     """
     current_app.logger.info("🔧 TOOL CALLED: get_shopping_predictions")
 
-    conversation = ctx.deps.get("conversation")
-    if not conversation:
-        return "Error: No conversation context available."
-
-    user_id = conversation.user_id
+    if filters is None:
+        filters = PredictionFilters()
 
     db = current_app.extensions["database"]
     async with db.session_factory() as session:
         try:
             predictions = await grocery_service.calculate_predictions(
                 session,
-                user_id=user_id,
                 min_priority=filters.min_priority,
                 include_shopping_list=filters.include_shopping_list,
             )
@@ -265,13 +250,6 @@ async def add_to_shopping_list(
         f"🔧 TOOL CALLED: add_to_shopping_list for {item_data.item_name}"
     )
 
-    conversation = ctx.deps.get("conversation")
-    if not conversation:
-        return "Error: No conversation context available."
-
-    user_id = conversation.user_id
-
-    # Validate urgency
     valid_urgency = {"low", "normal", "high"}
     if item_data.urgency not in valid_urgency:
         return (
@@ -282,18 +260,13 @@ async def add_to_shopping_list(
     db = current_app.extensions["database"]
     async with db.session_factory() as session:
         try:
-            entry = await grocery_service.add_to_shopping_list(
+            entry, item_name = await grocery_service.add_to_shopping_list(
                 session,
-                user_id=user_id,
                 item_name=item_data.item_name,
                 quantity=item_data.quantity,
                 urgency=item_data.urgency,
                 notes=item_data.notes,
             )
-
-            # Get item name (capitalized)
-            await session.refresh(entry.item)
-            item_name = entry.item.name
 
             urgency_text = (
                 f" with {item_data.urgency} urgency"
@@ -340,18 +313,11 @@ async def remove_from_shopping_list(
         f"🔧 TOOL CALLED: remove_from_shopping_list for {item_name}"
     )
 
-    conversation = ctx.deps.get("conversation")
-    if not conversation:
-        return "Error: No conversation context available."
-
-    user_id = conversation.user_id
-
     db = current_app.extensions["database"]
     async with db.session_factory() as session:
         try:
             message = await grocery_service.remove_from_shopping_list(
                 session,
-                user_id=user_id,
                 item_name=item_name,
                 adjust_frequency=adjust_frequency,
                 frequency_adjustment_weeks=frequency_adjustment_weeks,
@@ -398,18 +364,11 @@ async def adjust_item_frequency(
         f" {adjustment_weeks} weeks"
     )
 
-    conversation = ctx.deps.get("conversation")
-    if not conversation:
-        return "Error: No conversation context available."
-
-    user_id = conversation.user_id
-
     db = current_app.extensions["database"]
     async with db.session_factory() as session:
         try:
             item = await grocery_service.adjust_item_frequency(
                 session,
-                user_id=user_id,
                 item_name=item_name,
                 adjustment_weeks=adjustment_weeks,
             )
@@ -439,26 +398,18 @@ async def get_shopping_list(ctx: RunContext[dict]) -> str:
 
     Use this tool when:
     - User asks "what's on my shopping list?"
-    - User wants to see urgent items
     - User asks about items they've marked to buy
 
-    Returns formatted list of all shopping list items with urgency levels.
+    Returns formatted list of all shopping list items.
     """
     current_app.logger.info("🔧 TOOL CALLED: get_shopping_list")
-
-    conversation = ctx.deps.get("conversation")
-    if not conversation:
-        return "Error: No conversation context available."
-
-    user_id = conversation.user_id
 
     db = current_app.extensions["database"]
     async with db.session_factory() as session:
         try:
-            # Get all shopping list entries for user
             from src.models.grocery import ShoppingList
 
-            entries = await ShoppingList.get_all_by_user(session, user_id)
+            entries = await ShoppingList.get_all(session)
 
             if not entries:
                 return "📋 Your shopping list is empty."
@@ -467,16 +418,10 @@ async def get_shopping_list(ctx: RunContext[dict]) -> str:
             lines = ["📋 Shopping List:\n"]
 
             for i, entry in enumerate(entries, 1):
-                # Urgency emoji
-                urgency_emoji = {"high": "‼️", "normal": "⚠️", "low": "ℹ️"}.get(
-                    entry.urgency, "⚠️"
-                )
-
-                # Load item details
-                await session.refresh(entry.item)
+                # Item details
                 item_name = entry.item.name
 
-                lines.append(f"{i}. **{item_name}** {urgency_emoji}")
+                lines.append(f"{i}. {item_name}")
 
                 # Quantity if specified
                 if entry.quantity_needed:
@@ -521,16 +466,10 @@ async def get_item_history(
     """
     current_app.logger.info(f"🔧 TOOL CALLED: get_item_history for {item_name}")
 
-    conversation = ctx.deps.get("conversation")
-    if not conversation:
-        return "Error: No conversation context available."
-
-    user_id = conversation.user_id
-
     db = current_app.extensions["database"]
     async with db.session_factory() as session:
         history = await grocery_service.get_item_history(
-            session, user_id=user_id, item_name=item_name, limit=limit
+            session, item_name=item_name, limit=limit
         )
 
         if not history:

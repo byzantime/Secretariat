@@ -14,6 +14,7 @@ from sqlalchemy import Text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import relationship
+from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import func
 
 from src.modules.database import Base
@@ -25,8 +26,7 @@ class GroceryItem(Base):
     __tablename__ = "grocery_items"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    name = Column(String(200), nullable=False)
+    name = Column(String(200), nullable=False, unique=True)
     unit_type = Column(String(50), nullable=True)
     typical_quantity = Column(Float, nullable=True)
     base_frequency_days = Column(Integer, nullable=True)
@@ -47,7 +47,7 @@ class GroceryItem(Base):
         super().__init__(**kwargs)
 
     def __repr__(self):
-        return f"<GroceryItem(id={self.id}, name={self.name}, user_id={self.user_id})>"
+        return f"<GroceryItem(id={self.id}, name={self.name})>"
 
     @staticmethod
     async def get_by_id(session: AsyncSession, item_id: int) -> Optional["GroceryItem"]:
@@ -58,26 +58,17 @@ class GroceryItem(Base):
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_by_user_and_name(
-        session: AsyncSession, user_id: int, name: str
-    ) -> Optional["GroceryItem"]:
-        """Get grocery item by user and name (case-insensitive)."""
+    async def get_by_name(session: AsyncSession, name: str) -> Optional["GroceryItem"]:
+        """Get grocery item by name (case-insensitive)."""
         result = await session.execute(
-            select(GroceryItem).where(
-                GroceryItem.user_id == user_id,
-                func.lower(GroceryItem.name) == func.lower(name),
-            )
+            select(GroceryItem).where(func.lower(GroceryItem.name) == func.lower(name))
         )
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_all_by_user(
-        session: AsyncSession, user_id: int
-    ) -> List["GroceryItem"]:
-        """Get all grocery items for a user."""
-        result = await session.execute(
-            select(GroceryItem).where(GroceryItem.user_id == user_id)
-        )
+    async def get_all(session: AsyncSession) -> List["GroceryItem"]:
+        """Get all grocery items."""
+        result = await session.execute(select(GroceryItem))
         return list(result.scalars().all())
 
     @staticmethod
@@ -108,7 +99,6 @@ class GroceryOrder(Base):
     __tablename__ = "grocery_orders"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     supermarket = Column(String(100), nullable=False)
     order_date = Column(Date, nullable=False, index=True)
     total_cost = Column(Float, nullable=True)
@@ -141,15 +131,11 @@ class GroceryOrder(Base):
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_all_by_user(
-        session: AsyncSession, user_id: int, limit: int = None
+    async def get_all(
+        session: AsyncSession, limit: Optional[int] = None
     ) -> List["GroceryOrder"]:
-        """Get all grocery orders for a user, optionally limited."""
-        query = (
-            select(GroceryOrder)
-            .where(GroceryOrder.user_id == user_id)
-            .order_by(GroceryOrder.order_date.desc())
-        )
+        """Get all grocery orders, optionally limited."""
+        query = select(GroceryOrder).order_by(GroceryOrder.order_date.desc())
         if limit:
             query = query.limit(limit)
 
@@ -213,16 +199,11 @@ class OrderItem(Base):
         return list(result.scalars().all())
 
     @staticmethod
-    async def get_by_item(
-        session: AsyncSession, item_id: int, limit: int = None
-    ) -> List["OrderItem"]:
-        """Get all order items for a grocery item, optionally limited."""
-        query = (
-            select(OrderItem)
-            .where(OrderItem.item_id == item_id)
-            .join(GroceryOrder)
-            .order_by(GroceryOrder.order_date.desc())
-        )
+    async def get_all(
+        session: AsyncSession, limit: Optional[int] = None
+    ) -> List["GroceryOrder"]:
+        """Get all grocery orders, optionally limited."""
+        query = select(GroceryOrder).order_by(GroceryOrder.order_date.desc())
         if limit:
             query = query.limit(limit)
 
@@ -250,8 +231,9 @@ class ShoppingList(Base):
     __tablename__ = "shopping_list"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    item_id = Column(Integer, ForeignKey("grocery_items.id"), nullable=False)
+    item_id = Column(
+        Integer, ForeignKey("grocery_items.id"), nullable=False, unique=True
+    )
     quantity_needed = Column(Float, nullable=True)
     urgency = Column(String(20), nullable=False, default="normal")
     added_at = Column(DateTime, default=func.now(), nullable=False)
@@ -264,10 +246,7 @@ class ShoppingList(Base):
         super().__init__(**kwargs)
 
     def __repr__(self):
-        return (
-            f"<ShoppingList(id={self.id}, user_id={self.user_id},"
-            f" item_id={self.item_id})>"
-        )
+        return f"<ShoppingList(id={self.id}, item_id={self.item_id})>"
 
     @staticmethod
     async def get_by_id(
@@ -280,24 +259,20 @@ class ShoppingList(Base):
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_by_user_and_item(
-        session: AsyncSession, user_id: int, item_id: int
+    async def get_by_item(
+        session: AsyncSession, item_id: int
     ) -> Optional["ShoppingList"]:
-        """Get shopping list entry by user and item."""
+        """Get shopping list entry by item."""
         result = await session.execute(
-            select(ShoppingList).where(
-                ShoppingList.user_id == user_id, ShoppingList.item_id == item_id
-            )
+            select(ShoppingList).where(ShoppingList.item_id == item_id)
         )
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_all_by_user(
-        session: AsyncSession, user_id: int
-    ) -> List["ShoppingList"]:
-        """Get all shopping list items for a user."""
+    async def get_all(session: AsyncSession) -> List["ShoppingList"]:
+        """Get all shopping list items."""
         result = await session.execute(
-            select(ShoppingList).where(ShoppingList.user_id == user_id)
+            select(ShoppingList).options(selectinload(ShoppingList.item))
         )
         return list(result.scalars().all())
 
