@@ -12,6 +12,7 @@ from quart import stream_with_context
 from quart_auth import current_user
 
 from src.blueprints.auth import auth_bp
+from src.blueprints.browser_auth import browser_auth_bp
 from src.blueprints.telegram import telegram_bp
 
 # Create blueprints for different parts of the app
@@ -125,4 +126,5 @@ def register_blueprints(app):
     """Register all blueprints with the application."""
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(browser_auth_bp)
     app.register_blueprint(telegram_bp)

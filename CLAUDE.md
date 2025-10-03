@@ -24,7 +24,6 @@ This is a Quart-based AI personal assistant application with HTMX frontend and S
 - **Scheduling**: APScheduler for recurring tasks
 - **Memory System**: Vector embeddings (FastEmbed) with Qdrant client
 - **Browser Automation**: browser-use for web interactions
-- **Multi-platform**: Docker builds for AMD64, ARM64, ARMv6, ARMv7
 
 ## Development Commands
 
@@ -68,7 +67,7 @@ python main.py
 # Using uv
 uv run python main.py
 
-# Docker (see BUILD.md for platform-specific builds)
+# Docker
 docker pull ghcr.io/byzantime/secretariat:latest
 docker run -p 8080:8080 ghcr.io/byzantime/secretariat:latest
 ```
@@ -98,7 +97,7 @@ pytest
 - Agent instructions customizable via `agent_instructions.txt`
 
 ### Memory & Vector Search
-- Vector embeddings via FastEmbed (with fallback on ARMv6/ARMv7)
+- Vector embeddings via FastEmbed
 - Memory storage and retrieval in `src/modules/memory.py`
 - Conversation tracking via `conversation_manager.py`
 
@@ -113,9 +112,7 @@ pytest
 - Templates use `jinja-ui-kit` for consistent components
 
 ### Platform Support
-- Debian images (AMD64/ARM64): Full features including FastEmbed, browser automation
-- Alpine images (ARMv6/ARMv7): Core features with fallbacks
-- See BUILD.md for detailed platform guide
+- Debian images: Full features including FastEmbed, browser automation
 
 ## Environment Variables
 

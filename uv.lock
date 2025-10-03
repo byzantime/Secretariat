@@ -190,6 +190,15 @@ wheels = [
 ]
 
 [[package]]
+name = "async-timeout"
+version = "5.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/ae/136395dfbfe00dfc94da3f3e136d0b13f394cba8f4841120e34226265780/async_timeout-5.0.1.tar.gz", hash = "sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3", size = 9274, upload-time = "2024-11-06T16:41:39.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/ba/e2081de779ca30d473f21f5b30e0e737c438205440784c7dfc81efc2b029/async_timeout-5.0.1-py3-none-any.whl", hash = "sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c", size = 6233, upload-time = "2024-11-06T16:41:37.9Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "25.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1477,6 +1486,19 @@ wheels = [
 ]
 
 [[package]]
+name = "jwcrypto"
+version = "1.5.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e1/db/870e5d5fb311b0bcf049630b5ba3abca2d339fd5e13ba175b4c13b456d08/jwcrypto-1.5.6.tar.gz", hash = "sha256:771a87762a0c081ae6166958a954f80848820b2ab066937dc8b8379d65b1b039", size = 87168, upload-time = "2024-03-06T19:58:31.831Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/58/4a1880ea64032185e9ae9f63940c9327c6952d5584ea544a8f66972f2fda/jwcrypto-1.5.6-py3-none-any.whl", hash = "sha256:150d2b0ebbdb8f40b77f543fb44ffd2baeff48788be71f67f03566692fd55789", size = 92520, upload-time = "2024-03-06T19:58:29.765Z" },
+]
+
+[[package]]
 name = "logfire-api"
 version = "4.10.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1875,6 +1897,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/6e/371856a3fb9d31ca8dac321cda606860fa4548858c0cc45d9d1d4ca2628b/mypy_extensions-1.1.0.tar.gz", hash = "sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558", size = 6343, upload-time = "2025-04-22T14:54:24.164Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505", size = 4963, upload-time = "2025-04-22T14:54:22.983Z" },
+]
+
+[[package]]
+name = "novnc"
+version = "1.0.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "websockify" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/a4/f1d721bc2eeb74d5aba503d21cfd2421b571f322e18fac2681add20dff4d/novnc-1.0.5.tar.gz", hash = "sha256:da98f4bbe55ccddb86fda471ccc17af0fe8aac58f627415594b5365f2e1947af", size = 11840598, upload-time = "2025-09-01T09:26:36.046Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/39/6b/fd286cbb5a2ab0bff4c8bad6061b12dfc304ec870546412935580d727a2f/novnc-1.0.5-py3-none-any.whl", hash = "sha256:9b8588aa5d2767fd022bcaf68621315d015ad2c48184ad299002450bfc8dcf74", size = 11836200, upload-time = "2025-09-01T09:23:41.032Z" },
 ]
 
 [[package]]
@@ -5607,6 +5641,18 @@ wheels = [
 ]
 
 [[package]]
+name = "redis"
+version = "6.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "async-timeout", marker = "python_full_version < '3.11.3'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0d/d6/e8b92798a5bd67d659d51a18170e91c16ac3b59738d91894651ee255ed49/redis-6.4.0.tar.gz", hash = "sha256:b01bc7282b8444e28ec36b261df5375183bb47a07eb9c603f284e89cbc5ef010", size = 4647399, upload-time = "2025-08-07T08:10:11.441Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/02/89e2ed7e85db6c93dfa9e8f691c5087df4e3551ab39081a4d7c6d1f90e05/redis-6.4.0-py3-none-any.whl", hash = "sha256:f0544fa9604264e9464cdf4814e7d4830f74b165d52f2a330a760a88dd248b7f", size = 279847, upload-time = "2025-08-07T08:10:09.84Z" },
+]
+
+[[package]]
 name = "referencing"
 version = "0.36.2"
 source = { registry = "https://pypi.org/simple" }
@@ -5831,7 +5877,9 @@ dependencies = [
     { name = "browser-use" },
     { name = "fastembed" },
     { name = "httpx" },
+    { name = "itsdangerous" },
     { name = "jinja-ui-kit" },
+    { name = "novnc" },
     { name = "pydantic-ai-slim", extra = ["duckduckgo"] },
     { name = "python-dotenv" },
     { name = "python-telegram-bot", extra = ["webhooks"] },
@@ -5869,7 +5917,9 @@ requires-dist = [
     { name = "coverage", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "fastembed" },
     { name = "httpx" },
+    { name = "itsdangerous" },
     { name = "jinja-ui-kit", git = "https://github.com/byzantime/jinja-ui-kit.git" },
+    { name = "novnc" },
     { name = "pydantic-ai-slim", extras = ["duckduckgo"] },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.26.0" },
@@ -6269,6 +6319,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/86/eb/20b6cdf273913d0ad05a6a14aed4b9a85591c18a987a3d47f20fa13dcc47/websockets-15.0.1-cp313-cp313-win32.whl", hash = "sha256:ba9e56e8ceeeedb2e080147ba85ffcd5cd0711b89576b83784d8605a7df455fa", size = 176393, upload-time = "2025-03-05T20:02:53.814Z" },
     { url = "https://files.pythonhosted.org/packages/1b/6c/c65773d6cab416a64d191d6ee8a8b1c68a09970ea6909d16965d26bfed1e/websockets-15.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:e09473f095a819042ecb2ab9465aee615bd9c2028e4ef7d933600a8401c79561", size = 176837, upload-time = "2025-03-05T20:02:55.237Z" },
     { url = "https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl", hash = "sha256:f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f", size = 169743, upload-time = "2025-03-05T20:03:39.41Z" },
+]
+
+[[package]]
+name = "websockify"
+version = "0.13.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jwcrypto" },
+    { name = "numpy" },
+    { name = "redis" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/9e/fa7b6322fe22a02cf34256cbe300a9468533038b1262c7960119a787b595/websockify-0.13.0.tar.gz", hash = "sha256:9969731116653226c4c499a8a50712c8f3f7c105c615ead7ebc6ae781f0ba954", size = 50653, upload-time = "2025-05-26T14:40:14.141Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/19/e8/6476cd85a71f7cfb04ca1e199809b75bc8580d075d4338ffcde4c761d620/websockify-0.13.0-py3-none-any.whl", hash = "sha256:ac497a8dafc7f51d28ca989f01cdf5f8add663a497d425a56b159dcb8d6a314c", size = 41537, upload-time = "2025-05-26T14:40:12.915Z" },
 ]
 
 [[package]]

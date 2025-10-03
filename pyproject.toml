@@ -39,6 +39,8 @@ dependencies = [
     "fastembed",
     "qdrant-client",
     "vaderSentiment",
+    "itsdangerous",
+    "novnc",
 ]
 
 [project.optional-dependencies]
@@ -68,7 +70,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 # Enable pycodestyle (`E`), Pyflakes (`F`), and isort (`I`) codes by default
-select = ["E", "F", "I", "C90", "D212"]
+select = ["E", "F", "I", "C90", "D205", "D212"]
 ignore = ["F402", "E501"]
 
 # Allow unused variables when underscore-prefixed.
