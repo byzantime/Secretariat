@@ -3,7 +3,6 @@
 import asyncio
 import subprocess
 
-import novnc
 from quart import current_app
 
 
@@ -93,13 +92,12 @@ class NoVNCProxy:
             self._cleanup_stale_port()
 
             # Start websockify (comes with novnc package)
+            # NOTE: Static files are served by the main app, not websockify
             current_app.logger.info(f"Starting websockify on port {self.listen_port}")
 
             # Use Python's websockify module from novnc package
             self.process = await asyncio.create_subprocess_exec(
                 "websockify",
-                "--web",
-                novnc.server_path,  # noVNC files path (extracted to /tmp/novnc_server)
                 str(self.listen_port),
                 f"{self.vnc_host}:{self.vnc_port}",
                 stdout=asyncio.subprocess.DEVNULL,
