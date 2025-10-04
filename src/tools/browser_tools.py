@@ -116,10 +116,10 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
         " you cannot complete autonomously. The user will be shown the live browser via"
         " VNC to provide the needed input, then you can continue the task. MUST use"
         " this when stuck - do not give up! When providing the reason, use simple,"
-        " friendly language that tells the user exactly what to do. Examples: 'I need"
-        " you to solve the CAPTCHA for me', 'I need you to login to continue', 'Please"
-        " complete the 2FA verification', 'I need you to fill in your personal"
-        " information'",
+        " direct language that concisely tells the user exactly what to do. Examples:"
+        " 'Please solve the CAPTCHA for me', 'Please login to <name of"
+        " service>', 'Please complete the 2FA verification', 'Please fill in your"
+        " personal information'",
         param_model=HumanAssistanceParams,
     )
     async def request_human_assistance(

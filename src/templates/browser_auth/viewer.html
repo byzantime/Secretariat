@@ -128,24 +128,6 @@
 
             // Hide overlay
             overlay.classList.add('hidden');
-
-            // Update status indicator
-            const indicator = document.getElementById('keyboard-status');
-            if (indicator) {
-                if (success) {
-                    indicator.textContent = '✓ Keyboard ready';
-                    indicator.className = 'text-xs text-green-600 mt-1';
-                    setTimeout(() => indicator.remove(), 3000);
-                } else {
-                    indicator.textContent = 'Use button below if needed';
-                    indicator.className = 'text-xs text-gray-600 mt-1';
-                    // Show fallback button
-                    const fallbackBtn = document.getElementById('show-keyboard-btn');
-                    if (fallbackBtn) {
-                        fallbackBtn.classList.remove('hidden');
-                    }
-                }
-            }
         }, { once: true });
     }
 
@@ -159,18 +141,7 @@
     const showKeyboardBtn = document.getElementById('show-keyboard-btn');
     if (showKeyboardBtn) {
         showKeyboardBtn.addEventListener('click', () => {
-            const success = focusKeyboardInput();
-            const indicator = document.getElementById('keyboard-status');
-
-            if (success) {
-                if (indicator) {
-                    indicator.textContent = '✓ Keyboard ready';
-                    indicator.className = 'text-xs text-green-600 mt-1';
-                }
-            } else if (indicator) {
-                indicator.textContent = '✗ Could not access keyboard';
-                indicator.className = 'text-xs text-red-600 mt-1';
-            }
+            focusKeyboardInput();
         });
     }
 

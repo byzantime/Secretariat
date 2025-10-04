@@ -144,12 +144,9 @@ class WebUIChannel(CommunicationChannel):
 
     async def send_message_complete(self, message_id: str, content: str) -> bool:
         """Send message completion via SSE."""
-        try:
-            await self.broadcast_event("message_complete", message_id)
-            return True
-        except Exception as e:
-            current_app.logger.error(f"SSE message complete failed: {e}")
-            return False
+        if content:
+            await self.send_message_update(message_id, content)
+        return True
 
     async def send_error(self, error_message: str) -> bool:
         """Send error message via SSE."""
