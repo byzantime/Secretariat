@@ -157,7 +157,7 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
             url, instruction
         )
 
-        # Send assistance notification via event system
+        # Send assistance request via event system
         message_id = secrets.token_urlsafe(8)
         notification_content = (
             f"**I need your help with `{url}`**\n\n"
@@ -165,13 +165,13 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
             "_Link expires in 5 minutes_"
         )
 
-        # Emit message start event
+        # Emit message start event - for WebUI
         await event_handler.emit_to_services(
             "llm.message.start",
-            {"message_id": message_id, "content": ""},
+            {"message_id": message_id, "content": notification_content},
         )
 
-        # Emit message complete event with content
+        # Emit message complete event - for Telegram
         await event_handler.emit_to_services(
             "llm.message.complete",
             {"message_id": message_id, "content": notification_content},

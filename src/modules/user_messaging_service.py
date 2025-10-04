@@ -664,8 +664,7 @@ class CommunicationService:
         # Send the message via WebUI for display
         webui_channel = self.channels.get("webui")
         if webui_channel and await webui_channel.is_connected():
-            if hasattr(webui_channel, "send_user_message"):
-                asyncio.create_task(webui_channel.send_user_message(message))
+            asyncio.create_task(webui_channel.send_user_message(message))
 
     # Chat Event Handlers
     async def _handle_chat_message(self, data: Optional[Dict] = None):

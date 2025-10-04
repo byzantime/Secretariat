@@ -9,7 +9,7 @@ from pydantic_ai import Agent
 from pydantic_ai import RunContext
 from pydantic_ai.common_tools.duckduckgo import duckduckgo_search_tool
 from pydantic_ai.messages import FunctionToolCallEvent
-from pydantic_ai.messages import PartDeltaEvent
+from pydantic_ai.messages import TextPart
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from quart import current_app
@@ -171,23 +171,6 @@ class LLMService:
                     f"{name} toolset: no tools available (dependencies missing)"
                 )
 
-    async def _handle_stream_events(self, stream):
-        """Extract displayable text from streaming events.
-
-        Args:
-            stream: AsyncIterator[AgentStreamEvent] from node.stream()
-
-        Yields:
-            str: Text content from PartDeltaEvent increments
-        """
-        async for event in stream:
-            # Extract incremental text tokens from PartDeltaEvent
-            if isinstance(event, PartDeltaEvent):
-                # PartDeltaEvent contains delta which may have content
-                if hasattr(event, "delta") and hasattr(event.delta, "content"):
-                    if event.delta.content:
-                        yield event.delta.content
-
     async def process_and_respond(self, conversation_id: str, user_message: str):
         """Process conversation history and generate a response."""
         conversation = await self._get_conversation(conversation_id)
@@ -287,16 +270,14 @@ class LLMService:
 
                     # Iterate through execution nodes
                     async for node in agent_run:
-                        # Stream text in real-time from ModelRequestNode
-                        if Agent.is_model_request_node(node):
-                            async with node.stream(agent_run.ctx) as request_stream:
-                                async for text_chunk in self._handle_stream_events(
-                                    request_stream
-                                ):
+                        # Check for CallToolsNode which contains ModelResponse
+                        if Agent.is_call_tools_node(node):
+                            # Extract text from ModelResponse parts
+                            for part in node.model_response.parts:
+                                if isinstance(part, TextPart):
                                     content_streamed = True
-                                    full_response += (
-                                        text_chunk  # Accumulate incrementally
-                                    )
+                                    # Accumulate and stream text content
+                                    full_response = part.content
 
                                     if emit_events:
                                         await event_handler.emit_to_services(
@@ -307,8 +288,7 @@ class LLMService:
                                             },
                                         )
 
-                        # Handle tool call indicators with real-time logging and events
-                        elif Agent.is_call_tools_node(node):
+                            # Also stream tool call events in real-time
                             async with node.stream(agent_run.ctx) as tool_stream:
                                 async for event in tool_stream:
                                     if isinstance(event, FunctionToolCallEvent):
