@@ -27,3 +27,6 @@ src/static/js/packed-*.min.js
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Browser authentication
+data/browser_profile/

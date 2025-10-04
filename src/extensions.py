@@ -2,14 +2,18 @@ from quart_compress import Compress
 
 from src.models.user import UserManager
 from src.modules.assets import init_assets
+from src.modules.assistance_monitor import AssistanceMonitor
 from src.modules.conversation_manager import ConversationManager
 from src.modules.database import Database
 from src.modules.event_handler import EventHandler
+from src.modules.human_assistance_service import HumanAssistanceService
 from src.modules.llm_service import LLMService
 from src.modules.logging_helper import LoggingHelper
 from src.modules.memory import MemoryService
+from src.modules.novnc_proxy import NoVNCProxy
 from src.modules.scheduling_service import SchedulingService
 from src.modules.user_messaging_service import CommunicationService
+from src.modules.vnc_server import VNCServer
 
 # Create instances without initializing
 compress = Compress()
@@ -22,6 +26,10 @@ llm_service = LLMService()
 scheduling_service = SchedulingService()
 communication_service = CommunicationService()
 user_manager = UserManager()
+human_assistance_service = HumanAssistanceService()
+assistance_monitor = AssistanceMonitor()
+vnc_server = VNCServer()
+novnc_proxy = NoVNCProxy()
 
 
 def init_extensions(app):
@@ -38,3 +46,7 @@ def init_extensions(app):
     llm_service.init_app(app)
     scheduling_service.init_app(app)  # Initialize after database
     communication_service.init_app(app)  # Initialize after event handler
+    human_assistance_service.init_app(app)  # Initialize human assistance services
+    assistance_monitor.init_app(app)
+    vnc_server.init_app(app)
+    novnc_proxy.init_app(app)

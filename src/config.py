@@ -51,3 +51,17 @@ class Config:
     QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
     QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")
     MEMORY_COLLECTION_NAME = os.environ.get("MEMORY_COLLECTION_NAME", "memories")
+
+    # Browser Human Assistance
+    BROWSER_USER_DATA_DIR = os.environ.get(
+        "BROWSER_USER_DATA_DIR", f"{DATA_DIR}/browser_profile"
+    )
+    ASSISTANCE_LINK_EXPIRATION = int(
+        os.environ.get("ASSISTANCE_LINK_EXPIRATION", "300")
+    )  # 5 min
+    ASSISTANCE_SECRET_KEY = os.environ.get("ASSISTANCE_SECRET_KEY", SECRET_KEY)
+
+    # VNC Configuration
+    VNC_DISPLAY = os.environ.get("VNC_DISPLAY", ":99")
+    VNC_PORT = int(os.environ.get("VNC_PORT", "5900"))
+    NOVNC_PORT = int(os.environ.get("NOVNC_PORT", "6080"))
