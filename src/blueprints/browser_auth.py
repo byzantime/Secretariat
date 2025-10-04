@@ -100,15 +100,20 @@ async def browser_viewer(token: str):
 
     # Build noVNC URL with properly encoded query parameters
     # Use same scheme as incoming request to avoid mixed content errors
+    # Switch to full noVNC client for better mobile support
     novnc_base = url_for(
         "browser_auth.serve_novnc_files",
-        filename="vnc_lite.html",
+        filename="index.html",
         _external=True,
         _scheme=scheme,
     )
-    query_params = urlencode(
-        {"autoconnect": "true", "resize": "scale", "path": ws_path}
-    )
+    query_params = urlencode({
+        "autoconnect": "true",
+        "resize": "scale",
+        "path": ws_path,
+        "shared": "true",  # Allow multiple connections
+        "view_only": "false",  # Ensure interactive mode
+    })
     novnc_url = f"{novnc_base}?{query_params}"
 
     return await render_template(

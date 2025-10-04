@@ -33,10 +33,10 @@ class HumanAssistanceParams(BaseModel):
     url: str = Field(description="URL where assistance is needed")
     instruction: str = Field(
         description=(
-            "Simple, friendly instruction for the user about what they need to do."
-            " Examples: 'I need you to solve the CAPTCHA for me', 'I need you to login"
-            " to continue', 'Please complete the 2FA verification', 'I need you to fill"
-            " in your personal information'"
+            "Tell the user what you need them to do; be short and direct."
+            " Examples: 'Please solve the CAPTCHA for me', 'I need you to login"
+            " to continue', 'Please complete the 2FA verification', 'Please complete"
+            " the two-factor auth'"
         )
     )
 
@@ -72,7 +72,7 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
     - Fill out forms and submit data
     - Click buttons, links, and interactive elements
     - Extract text, data, or content from web pages
-    - Request human assistance for logins, CAPTCHAs, 2FA, personal info, etc.
+    - Request user assistance for logins, CAPTCHAs, 2FA, personal info, etc.
     - Maintain session state across multiple requests
     - Take screenshots and capture page content
 
@@ -81,7 +81,7 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
               Examples:
               - "Navigate to amazon.com, search for 'wireless headphones', and get the first 3 product details"
               - "Fill out the contact form on example.com with my information"
-              - "Go to my bank website and check my account balance" (will pause for human login)
+              - "Go to my bank website and check my account balance" (will pause for user login)
               - "Open GitHub, navigate to my repositories, and create a new repository"
 
     Returns:
@@ -186,26 +186,6 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
         # Mark session complete
         if success:
             assistance_service.mark_session_complete(session_id)
-
-            # Notify user via event system
-            completion_message_id = secrets.token_urlsafe(8)
-            completion_content = (
-                "✅ Assistance completed!\n\nYour session has been saved and"
-                " will persist across app restarts."
-            )
-
-            # Emit message start event
-            await event_handler.emit_to_services(
-                "llm.message.start",
-                {"message_id": completion_message_id, "content": ""},
-            )
-
-            # Emit message complete event with content
-            await event_handler.emit_to_services(
-                "llm.message.complete",
-                {"message_id": completion_message_id, "content": completion_content},
-            )
-
             return ActionResult(
                 extracted_content=(
                     f"✅ Human assistance completed for {url} ({instruction}). "
