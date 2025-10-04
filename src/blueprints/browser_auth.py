@@ -26,40 +26,33 @@ async def security_headers(response):
     endpoint = request.endpoint
     # Don't apply restrictive headers to noVNC static files (they need to be iframed)
     if endpoint == "browser_auth.serve_novnc_files":
-        # Very permissive CSP for noVNC - remove most restrictions
-        # Don't set X-Frame-Options or frame-ancestors to allow iframing
+        # Don't set X-Frame-Options to allow iframing from same origin
         response.headers.pop("X-Frame-Options", None)
         response.headers["Content-Security-Policy"] = (
-            "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; "
-            "script-src * 'unsafe-inline' 'unsafe-eval'; "
-            "connect-src * ws: wss:; "
-            "img-src * data: blob:; "
-            "style-src * 'unsafe-inline'; "
-            "worker-src * blob:; "
-            "font-src * data:; "
-            "frame-ancestors *"  # Allow being iframed from anywhere
-        )
-        current_app.logger.info(
-            f"✓ Applied permissive CSP for noVNC file: {request.path}"
+            "default-src 'self' data: blob: ws: wss:; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "connect-src 'self' ws: wss:; "
+            "img-src 'self' data: blob:; "
+            "style-src 'self' 'unsafe-inline'; "
+            "worker-src 'self' blob:; "
+            "font-src 'self' data:; "
+            "frame-ancestors 'self'"  # Only allow framing from same origin
         )
         return response
 
     # For viewer page - allow iframing noVNC
     if endpoint == "browser_auth.browser_viewer":
         response.headers["X-Content-Type-Options"] = "nosniff"
-        # Very permissive CSP for viewer page that embeds noVNC iframe
+        # Tightened CSP for viewer page that embeds noVNC iframe
         response.headers.pop("X-Frame-Options", None)
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self' 'unsafe-inline'; "
+            "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
-            "connect-src 'self' ws: wss: http: https:; "
-            "frame-src *; "  # Allow iframes from any source temporarily
-            "img-src 'self' data: blob:; "
+            "connect-src 'self' ws: wss:; "
+            "frame-src 'self'; "  # Only allow iframes from same origin
+            "img-src 'self' data:; "
             "style-src 'self' 'unsafe-inline'; "
-            "child-src *"  # Allow any child sources
-        )
-        current_app.logger.info(
-            f"✓ Applied permissive CSP for viewer page: {request.path}"
+            "child-src 'self'"
         )
         return response
 

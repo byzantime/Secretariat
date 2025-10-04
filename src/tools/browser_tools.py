@@ -31,10 +31,12 @@ class HumanAssistanceParams(BaseModel):
     """Parameters for requesting human assistance."""
 
     url: str = Field(description="URL where assistance is needed")
-    reason: str = Field(
+    instruction: str = Field(
         description=(
-            "Why human help is needed (e.g., 'login required', 'CAPTCHA detected', '2FA"
-            " needed', 'personal information required')"
+            "Simple, friendly instruction for the user about what they need to do."
+            " Examples: 'I need you to solve the CAPTCHA for me', 'I need you to login"
+            " to continue', 'Please complete the 2FA verification', 'I need you to fill"
+            " in your personal information'"
         )
     )
 
@@ -110,10 +112,14 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
     @tools.action(
         "Use this tool to request human assistance when you encounter ANY obstacle"
         " requiring user input: login screens, CAPTCHAs, 2FA prompts, personal"
-        " information forms (credit card, address, etc.), age verification, or any"
-        " task you cannot complete autonomously. The user will be shown the live"
-        " browser via VNC to provide the needed input, then you can continue the task."
-        " MUST use this when stuck - do not give up!",
+        " information forms (credit card, address, etc.), age verification, or any task"
+        " you cannot complete autonomously. The user will be shown the live browser via"
+        " VNC to provide the needed input, then you can continue the task. MUST use"
+        " this when stuck - do not give up! When providing the reason, use simple,"
+        " friendly language that tells the user exactly what to do. Examples: 'I need"
+        " you to solve the CAPTCHA for me', 'I need you to login to continue', 'Please"
+        " complete the 2FA verification', 'I need you to fill in your personal"
+        " information'",
         param_model=HumanAssistanceParams,
     )
     async def request_human_assistance(
@@ -125,9 +131,9 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
         requiring user input: logins, CAPTCHAs, 2FA, personal info, etc.
         """
         url = params.url
-        reason = params.reason
+        instruction = params.instruction
         current_app.logger.info(
-            f"👤 BROWSER-USE ACTION: request_human_assistance - {url}: {reason}"
+            f"👤 BROWSER-USE ACTION: request_human_assistance - {url}: {instruction}"
         )
 
         # Get services
@@ -148,17 +154,15 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
 
         # Create assistance session
         session_id, assistance_url = assistance_service.create_assistance_session(
-            url, reason
+            url, instruction
         )
 
         # Send assistance notification via event system
         message_id = secrets.token_urlsafe(8)
         notification_content = (
-            "**Human Assistance Requested**\n\n"
-            f"**Reason:** {reason}\n"
-            f"**URL:** `{url}`\n\n"
-            f"[Click here to assist]({assistance_url})\n\n"
-            "This link will expire in 5 minutes"
+            f"**I need your help with `{url}`**\n\n"
+            f"[{instruction}]({assistance_url})\n\n"
+            "_Link expires in 5 minutes_"
         )
 
         # Emit message start event
@@ -204,16 +208,16 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
 
             return ActionResult(
                 extracted_content=(
-                    f"✅ Human assistance completed for {url} ({reason}). "
+                    f"✅ Human assistance completed for {url} ({instruction}). "
                     "You can now continue with the task."
                 ),
-                long_term_memory=f"User provided assistance for: {reason}",
+                long_term_memory=f"User provided assistance for: {instruction}",
             )
         else:
             return ActionResult(
                 extracted_content=(
                     "❌ Assistance timeout - user did not complete the request"
-                    f" ({reason}) within 5 minutes"
+                    f" ({instruction}) within 5 minutes"
                 ),
                 error="Human assistance timeout",
             )
