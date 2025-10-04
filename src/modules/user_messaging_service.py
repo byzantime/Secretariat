@@ -60,6 +60,27 @@ class CommunicationChannel(ABC):
         current_app.logger.info(f"Tool called: {tool_name} with args {tool_args}")
         return True
 
+    def _get_friendly_tool_message(self, tool_name: str) -> str:
+        """Convert tool name to user-friendly message."""
+        tool_messages = {
+            "duckduckgo_search": "Searching the web...",
+            "browse_web": "Using the web browser...",
+            "record_grocery_order": "Recording grocery order...",
+            "get_shopping_predictions": "Analyzing shopping patterns...",
+            "add_to_shopping_list": "Adding to shopping list...",
+            "remove_from_shopping_list": "Removing from shopping list...",
+            "adjust_item_frequency": "Adjusting item frequency...",
+            "get_shopping_list": "Getting shopping list...",
+            "get_item_history": "Looking up item history...",
+            "memory_search": "Searching my memory...",
+            "setup_automation": "Setting up automation...",
+            "automations_list": "Listing automations...",
+            "delete_automation": "Deleting automation...",
+            "todo_read": "Reading todos...",
+            "todo_write": "Updating todos...",
+        }
+        return tool_messages.get(tool_name, f"Using {tool_name}...")
+
     async def update_status(self, status_message: Optional[str] = None) -> bool:
         """Update status display. Return True if successful, False if not supported."""
         return False
@@ -154,6 +175,16 @@ class WebUIChannel(CommunicationChannel):
             return True
         except Exception as e:
             current_app.logger.error(f"SSE user message failed: {e}")
+            return False
+
+    async def send_tool_notification(self, tool_name: str, tool_args: dict) -> bool:
+        """Send tool usage notification via SSE as a status update."""
+        try:
+            friendly_message = self._get_friendly_tool_message(tool_name)
+            await self.broadcast_event("status_update", friendly_message)
+            return True
+        except Exception as e:
+            current_app.logger.error(f"SSE tool notification failed: {e}")
             return False
 
     async def broadcast_event(self, event_type: str, data: str):
@@ -350,27 +381,6 @@ class TelegramChannel(CommunicationChannel):
                     )
                     success = False
         return success
-
-    def _get_friendly_tool_message(self, tool_name: str) -> str:
-        """Convert tool name to user-friendly message."""
-        tool_messages = {
-            "duckduckgo_search_tool": "Searching the web...",
-            "browse_web": "Using the web browser...",
-            "record_grocery_order": "Recording grocery order...",
-            "get_shopping_predictions": "Analyzing shopping patterns...",
-            "add_to_shopping_list": "Adding to shopping list...",
-            "remove_from_shopping_list": "Removing from shopping list...",
-            "adjust_item_frequency": "Adjusting item frequency...",
-            "get_shopping_list": "Getting shopping list...",
-            "get_item_history": "Looking up item history...",
-            "memory_search": "Searching my memory...",
-            "setup_automation": "Setting up automation...",
-            "automations_list": "Listing automations...",
-            "delete_automation": "Deleting automation...",
-            "todo_read": "Reading todos...",
-            "todo_write": "Updating todos...",
-        }
-        return tool_messages.get(tool_name, f"Using {tool_name}...")
 
     async def send_tool_notification(self, tool_name: str, tool_args: dict) -> bool:
         """Send tool usage notification via Telegram."""
