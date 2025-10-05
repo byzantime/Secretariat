@@ -21,12 +21,18 @@ Done! I've set up a reminder to take the rubbish out every 14 days starting next
 ### Online Shopping
 
 Online shopping via Telegram demonstrating use of the shopping list, web browser and todo tools and requesting assistance from the user when necessary.
+
 ...
+
 **You**: add homegrown orange juice to the shopping list - largest size
+
 **Secretariat**: _Adding to shopping list..._
 Added Homegrown Orange Juice (largest size) to your shopping list.
+
 **You**: What's on the shopping list?
+
 **Secretariat**: Getting shopping list...
+
 Shopping List:
 1. Colby Cheese
 2. Whittaker's Hazelnut Chocolate
@@ -35,9 +41,13 @@ Shopping List:
 5. Homegrown Orange Juice (largest size)
 
 **You**: alright now go buy it all from newworld.co.nz.  lemme know when it's all in the basket
+
 **Secretariat**: _Updating todos..._
+
 _Using the web browser..._
+
 I need your help with `https://www.newworld.co.nz/`
+
 [Please log in (or start shopping by selecting your store) so I can add the requested groceries to the cart.]()
 
 _Link expires in 5 minutes_
