@@ -26,12 +26,15 @@ Online shopping via Telegram demonstrating use of the shopping list, web browser
 
 **You**: add homegrown orange juice to the shopping list - largest size
 
-**Secretariat**: _Adding to shopping list..._
+**Secretariat**:
+_Adding to shopping list..._
+
 Added Homegrown Orange Juice (largest size) to your shopping list.
 
 **You**: What's on the shopping list?
 
-**Secretariat**: Getting shopping list...
+**Secretariat**: 
+_Getting shopping list..._
 
 Shopping List:
 1. Colby Cheese
@@ -42,7 +45,8 @@ Shopping List:
 
 **You**: alright now go buy it all from newworld.co.nz.  lemme know when it's all in the basket
 
-**Secretariat**: _Updating todos..._
+**Secretariat**:
+_Updating todos..._
 
 _Using the web browser..._
 
