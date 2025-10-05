@@ -6,6 +6,7 @@ import secrets
 import browser_use
 from browser_use import ActionResult
 from browser_use import Tools
+from browser_use.browser.profile import BrowserProfile
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic_ai import RunContext
@@ -33,10 +34,10 @@ class HumanAssistanceParams(BaseModel):
     url: str = Field(description="URL where assistance is needed")
     instruction: str = Field(
         description=(
-            "Tell the user what you need them to do; be short and direct."
-            " Examples: 'Please solve the CAPTCHA for me', 'I need you to login"
-            " to continue', 'Please complete the 2FA verification', 'Please complete"
-            " the two-factor auth'"
+            "Tell the user what you need them to do; be short and direct. Examples:"
+            " 'Solve the CAPTCHA for me', 'Login using your email and password',"
+            " 'Enter your 2FA verification'.  Do not explain why and do not ask the"
+            " user to let you know when they've taken the requested action."
         )
     )
 
@@ -93,15 +94,24 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
     display_env = os.environ.get("DISPLAY")
     current_app.logger.info(f"🖥️ DISPLAY environment variable: {display_env}")
 
-    # Create browser instance (VNC already running from app startup)
+    # Get device profile configuration from VNC server
+    vnc_server = current_app.extensions["vnc_server"]
+    device_config = vnc_server.get_browser_profile_config()
+
+    # Create browser instance with device emulation (VNC already running from app startup)
     user_data_dir = current_app.config["BROWSER_USER_DATA_DIR"]
-    browser_instance = browser_use.Browser(
+
+    browser_profile = BrowserProfile(
         headless=False,
         user_data_dir=user_data_dir,  # Persistent session storage (cookies, login state)
         env=(
             {"DISPLAY": display_env} if display_env else None
         ),  # Explicitly pass DISPLAY for X11
+        user_agent=device_config["user_agent"],
+        window_size=device_config["window_size"],
     )
+
+    browser_instance = browser_use.Browser(browser_profile=browser_profile)
 
     # Create browser LLM for this tool
     browser_llm = create_browser_llm()
@@ -113,13 +123,9 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
         "Use this tool to request human assistance when you encounter ANY obstacle"
         " requiring user input: login screens, CAPTCHAs, 2FA prompts, personal"
         " information forms (credit card, address, etc.), age verification, or any task"
-        " you cannot complete autonomously. The user will be shown the live browser via"
-        " VNC to provide the needed input, then you can continue the task. MUST use"
-        " this when stuck - do not give up! When providing the reason, use simple,"
-        " direct language that concisely tells the user exactly what to do. Examples:"
-        " 'Please solve the CAPTCHA for me', 'Please login to <name of"
-        " service>', 'Please complete the 2FA verification', 'Please fill in your"
-        " personal information'",
+        " you cannot complete autonomously. The user will be shown the browser and"
+        " you will be automatically notified when they provide the needed input. MUST"
+        " use this when stuck - do not give up!",
         param_model=HumanAssistanceParams,
     )
     async def request_human_assistance(

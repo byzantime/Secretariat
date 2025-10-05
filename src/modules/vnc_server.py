@@ -8,6 +8,39 @@ import time
 
 from quart import current_app
 
+# Device profile presets for browser emulation
+# Each profile includes viewport (content area), device settings, and Xvfb resolution (full window)
+DEVICE_PROFILES = {
+    "desktop": {
+        "user_agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        ),
+        "device_scale_factor": 1.0,
+        "window_size": {"width": 1280, "height": 720},
+        "xvfb_resolution": "1280x720x24",  # Desktop: full screen
+    },
+    "iphone": {
+        "user_agent": (
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 "
+            "Mobile/15E148 Safari/604.1"
+        ),
+        "device_scale_factor": 3.0,
+        "window_size": {"width": 430, "height": 1000},
+        "xvfb_resolution": "430x1000x24",
+    },
+    "pixel": {
+        "user_agent": (
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+        ),
+        "device_scale_factor": 2.625,
+        "window_size": {"width": 450, "height": 1065},
+        "xvfb_resolution": "450x1065x24",
+    },
+}
+
 
 class VNCServer:
     """Manages VNC server lifecycle for remote browser viewing."""
@@ -16,6 +49,7 @@ class VNCServer:
         """Initialize VNC server."""
         self.display = None
         self.vnc_port = None
+        self.device = None
         self.xvfb_process = None
         self.x11vnc_process = None
         self.running = False
@@ -28,6 +62,16 @@ class VNCServer:
         """
         self.display = app.config["VNC_DISPLAY"]
         self.vnc_port = app.config["VNC_PORT"]
+        self.device = app.config["BROWSER_DEVICE"]
+
+        # Validate device
+        if self.device not in DEVICE_PROFILES:
+            app.logger.warning(
+                f"Invalid BROWSER_DEVICE '{self.device}', defaulting to 'pixel'"
+            )
+            self.device = "pixel"
+
+        app.logger.info(f"Browser device emulation: {self.device}")
 
         # Register in extensions
         app.extensions["vnc_server"] = self
@@ -149,15 +193,20 @@ class VNCServer:
             # Clean up any processes using the VNC port
             self._cleanup_stale_port()
 
-            # Start virtual display (Xvfb)
-            current_app.logger.info(f"Starting Xvfb on display {self.display}")
+            # Start virtual display (Xvfb) with device-specific resolution
+            device_profile = DEVICE_PROFILES[self.device]
+            xvfb_resolution = device_profile["xvfb_resolution"]
+            current_app.logger.info(
+                f"Starting Xvfb on display {self.display} with resolution"
+                f" {xvfb_resolution} ({self.device} device emulation)"
+            )
             self.xvfb_process = subprocess.Popen(
                 [
                     "Xvfb",
                     self.display,
                     "-screen",
                     "0",
-                    "1280x720x24",  # Resolution and color depth
+                    xvfb_resolution,  # Resolution from device profile
                     "-ac",  # Disable access control
                     "+extension",
                     "GLX",  # Enable OpenGL (for modern web content)
@@ -240,3 +289,17 @@ class VNCServer:
     def get_display_env(self) -> str:
         """Get DISPLAY environment variable for browser."""
         return self.display
+
+    def get_browser_profile_config(self) -> dict:
+        """Get browser profile configuration for current device.
+
+        Returns:
+            Dictionary with viewport, user_agent, and device_scale_factor
+            for the current device profile.
+        """
+        device_profile = DEVICE_PROFILES[self.device]
+        return {
+            "window_size": device_profile["window_size"],
+            "user_agent": device_profile["user_agent"],
+            "device_scale_factor": device_profile["device_scale_factor"],
+        }

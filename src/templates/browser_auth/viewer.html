@@ -26,7 +26,6 @@
 <div class="px-4 py-3 border-b border-gray-200 flex-shrink-0 bg-white">
     <div class="text-sm text-gray-700 mb-3 leading-relaxed">
         {{ reason }}
-        <span id="keyboard-status" class="text-xs text-gray-500 mt-1"></span>
     </div>
     <div class="flex items-center justify-between gap-2">
         <button
@@ -44,23 +43,15 @@
     </div>
 </div>
 
-<!-- Mobile keyboard activation overlay -->
-<div id="keyboard-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white rounded-lg p-8 m-4 text-center shadow-xl">
-        <div class="text-6xl mb-4">⌨️</div>
-        <div class="text-xl font-semibold text-gray-900 mb-2">Tap to use Keyboard</div>
-        <div class="text-sm text-gray-600">Tap anywhere to enable keyboard input</div>
-    </div>
-</div>
-
 <!-- Viewer container - takes remaining space below control panel -->
 <div class="flex-1 min-h-0 bg-white">
-    <div class="h-full overflow-auto scrollbar-w-8 scrollbar-h-8 scrollbar scrollbar-thumb-gray-400 scrollbar-track-transparent scrollbar-thumb-rounded">
+    <div id="iframe-container" class="h-full overflow-auto scrollbar-w-8 scrollbar-h-8 scrollbar scrollbar-thumb-gray-400 scrollbar-track-transparent scrollbar-thumb-rounded flex justify-center">
         <iframe
             id="vnc-frame"
             src="{{ novnc_url }}"
             allow="clipboard-read; clipboard-write"
-            class="w-full h-full min-w-[1280px] min-h-[720px] border border-gray-200"
+            width="{{ device_width }}"
+            height="{{ device_height }}"
             allowfullscreen
             sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
             loading="eager"
@@ -71,13 +62,39 @@
 
 {% block scripts %}
 <script>
-    const statusEl = document.getElementById('status');
     const vncFrame = document.getElementById('vnc-frame');
     const doneBtn = document.getElementById('done-btn');
+    const iframeContainer = document.getElementById('iframe-container');
+
+    // Device dimensions from VNC server config
+    const DEVICE_WIDTH = {{ device_width }};
+    const DEVICE_HEIGHT = {{ device_height }};
 
     // Detect mobile device
     const isMobile = 'ontouchstart' in window;
-    const overlay = document.getElementById('keyboard-overlay');
+
+    // Scale iframe to fit viewport when narrower than device width
+    function scaleIframe() {
+        // Use clientWidth to exclude scrollbar width
+        const viewportWidth = document.documentElement.clientWidth;
+
+        // On mobile: always scale to match viewport width
+        // On desktop: only scale down if viewport is narrower than device
+        if (isMobile || viewportWidth < DEVICE_WIDTH) {
+            const scale = viewportWidth / DEVICE_WIDTH;
+            // Constrain container width to match scaled visual width
+            iframeContainer.style.width = `${viewportWidth}px`;
+            iframeContainer.style.margin = '0 auto';
+        } else {
+            // Reset to normal when viewport is wider (desktop only)
+            iframeContainer.style.width = '';
+            iframeContainer.style.margin = '';
+        }
+    }
+
+    // Apply scaling on load and resize
+    window.addEventListener('load', scaleIframe);
+    window.addEventListener('resize', scaleIframe);
 
     // Function to focus keyboard input using noVNC's mechanism
     function focusKeyboardInput() {
@@ -91,7 +108,7 @@
             const keyboardInput = iframeDoc.getElementById('noVNC_keyboardinput');
             if (keyboardInput) {
                 console.log('Focusing keyboard input');
-                keyboardInput.focus();
+                keyboardInput.focus({ preventScroll: true });
                 try {
                     const l = keyboardInput.value.length;
                     keyboardInput.setSelectionRange(l, l);
@@ -107,37 +124,8 @@
         }
     }
 
-    // Update status when iframe loads
-    vncFrame.addEventListener('load', () => {
-        statusEl.textContent = 'Connected';
-        statusEl.className = 'inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 whitespace-nowrap';
 
-        // Show overlay on mobile to capture user gesture
-        if (isMobile) {
-            console.log('Mobile device detected - showing tap overlay');
-            overlay.classList.remove('hidden');
-        }
-    });
-
-    // Handle overlay tap to trigger keyboard (requires user gesture)
-    if (overlay) {
-        overlay.addEventListener('click', () => {
-            console.log('Overlay tapped - attempting to focus keyboard');
-
-            const success = focusKeyboardInput();
-
-            // Hide overlay
-            overlay.classList.add('hidden');
-        }, { once: true });
-    }
-
-    // Handle errors
-    vncFrame.addEventListener('error', () => {
-        statusEl.textContent = 'Failed';
-        statusEl.className = 'inline-block px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700 whitespace-nowrap';
-    });
-
-    // Handle Show Keyboard button click (fallback)
+    // Handle Show Keyboard button click
     const showKeyboardBtn = document.getElementById('show-keyboard-btn');
     if (showKeyboardBtn) {
         showKeyboardBtn.addEventListener('click', () => {
@@ -155,15 +143,12 @@
             });
 
             if (response.ok) {
-                statusEl.textContent = 'Completed';
-                statusEl.className = 'inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 whitespace-nowrap';
                 doneBtn.disabled = true;
                 doneBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 setTimeout(() => window.close(), 2000);
             }
         } catch (e) {
-            statusEl.textContent = 'Error';
-            statusEl.className = 'inline-block px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700 whitespace-nowrap';
+            console.error('Error completing session:', e);
         }
     });
 </script>

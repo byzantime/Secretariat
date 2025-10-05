@@ -65,3 +65,6 @@ class Config:
     VNC_DISPLAY = os.environ.get("VNC_DISPLAY", ":99")
     VNC_PORT = int(os.environ.get("VNC_PORT", "5900"))
     NOVNC_PORT = int(os.environ.get("NOVNC_PORT", "6080"))
+
+    # Browser Device Emulation
+    BROWSER_DEVICE = os.environ.get("BROWSER_DEVICE", "pixel")
