@@ -4,10 +4,22 @@ An open-source AI-powered personal assistant.
 
 ## Running Secretariat
 
+### Using Docker (Recommended)
+
 ```bash
-uv sync               # Install required dependencies
-alembic upgrade head  # Setup the database
-python main.py        # The application will now run on http://localhost:5000
+# Create your .env file based on .env.example
+docker pull ghcr.io/byzantime/secretariat:latest
+docker run -p 8080:8080 --env-file .env ghcr.io/byzantime/secretariat:latest
+
+# The application will run on http://localhost:8080
+```
+
+
+### Running Locally
+
+```bash
+uv sync          # Install required dependencies
+./local_build.sh # Build CSS, run migrations, and start the app on http://localhost:5000
 ```
 
 ### Scheduling tasks
@@ -33,7 +45,7 @@ Added Homegrown Orange Juice (largest size) to your shopping list.
 
 **You**: What's on the shopping list?
 
-**Secretariat**: 
+**Secretariat**:
 _Getting shopping list..._
 
 Shopping List:
@@ -61,13 +73,13 @@ _Link expires in 5 minutes_
 ```bash
 uv sync --extra dev  # Install optional dev dependencies
 
-# Run the app using the following command - it activates the venv, rebuilds CSS the starts the app:
+# Run the app - it activates the venv, rebuilds CSS and starts the app:
 ./local_build.sh
 ```
 
 ### Telegram Integration
 
-To enable Telegram integration during local development:
+To enable Telegram integration:
 
 1. **Create a Telegram bot**:
    - Message [@BotFather](https://t.me/botfather) on Telegram

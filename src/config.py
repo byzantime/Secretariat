@@ -16,7 +16,6 @@ class Config:
     LOG_LEVEL = os.environ["LOG_LEVEL"]
     SECRET_KEY = os.environ["SECRET_KEY"]
     VERIFY_SSL = env_bool("VERIFY_SSL", True)
-    CREATE_TABLES_ON_STARTUP = env_bool("CREATE_TABLES_ON_STARTUP", False)
     SENTRY_DSN = os.environ.get("SENTRY_DSN")
     QUART_AUTH_COOKIE_SECURE = not DEBUG  # Allow insecure cookies in debug mode
 

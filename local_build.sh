@@ -15,5 +15,8 @@ npm ci --offline
 # Build and minify Tailwind CSS
 npm run build
 
+# Run database migrations
+alembic upgrade head
+
 # Start the Quart (local development only) server
 python main.py

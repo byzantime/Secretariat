@@ -145,12 +145,4 @@ def create_app(config=None):  # noqa: C901
 
         return response
 
-    # Create tables on startup (in production, use migrations)
-    @app.before_serving
-    async def create_tables():
-        """Create database tables on startup."""
-        if app.config.get("CREATE_TABLES_ON_STARTUP", False):
-            db = app.extensions["database"]
-            await db.create_tables()
-
     return app

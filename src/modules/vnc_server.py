@@ -135,6 +135,8 @@ class VNCServer:
             try:
                 os.remove(lock_file)
                 current_app.logger.info(f"Removed lock file: {lock_file}")
+            except FileNotFoundError:
+                pass  # This is fine, just means it wasn't locked.
             except OSError as e:
                 current_app.logger.error(f"Failed to remove lock file: {e}")
 
