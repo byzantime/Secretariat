@@ -96,13 +96,15 @@ def _validate_with_pydantic(self, extra_validators=None):
         # Map Pydantic validation errors to form field errors
         for error in e.errors():
             field_name = error["loc"][0] if error["loc"] else None
+            error_msg = error["msg"]
+
             if field_name and hasattr(self, field_name):
                 field = getattr(self, field_name)
-                field.errors.append(error["msg"])
+                field.errors.append(error_msg)
                 # Also add to form.errors dict for error summary
                 if field_name not in self.errors:
                     self.errors[field_name] = []
-                self.errors[field_name].append(error["msg"])
+                self.errors[field_name].append(error_msg)
         return False
 
     return True
@@ -127,7 +129,11 @@ def _to_settings_dict(self) -> Dict[str, Any]:
             continue
 
         value = field.data
-        if value is not None and value != "":
+        # Include all values, even empty strings, so Pydantic validation can catch missing required fields
+        # Convert empty strings to None for optional fields
+        if value == "":
+            settings_dict[field_name] = None
+        elif value is not None:
             settings_dict[field_name] = value
     return settings_dict
 

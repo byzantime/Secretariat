@@ -2,19 +2,15 @@ import os
 from typing import Literal
 from typing import Optional
 
+from dotenv import load_dotenv
 from pydantic import BaseModel
 from pydantic import Field
-from pydantic import model_validator
+from pydantic import ValidationInfo
+from pydantic import field_validator
 
 
 class Settings(BaseModel):
     """Settings model for environment variables with validation and defaults."""
-
-    # Database Section
-    database_name: str = Field(default="secretariat", description="Database file name")
-    data_dir: str = Field(
-        default=".", description="Directory for storing database and persistent data"
-    )
 
     # LLM Provider Section
     llm_provider: Literal["openrouter", "zen"] = Field(
@@ -69,6 +65,9 @@ class Settings(BaseModel):
     # Browser Device Emulation
     browser_device: str = Field(default="pixel", description="Browser device emulation")
 
+    # Timezone Configuration
+    timezone: str = Field(default="UTC", description="Application timezone")
+
     # Hidden/Internal fields (not shown in form)
     debug: bool = Field(default=False, description="Debug mode")
     log_level: str = Field(default="INFO", description="Log level")
@@ -76,20 +75,30 @@ class Settings(BaseModel):
         default="dev-secret-key-change-in-production",
         description="Secret key for session encryption",
     )
+    database_name: str = Field(default="secretariat", description="Database file name")
+    data_dir: str = Field(
+        default=".", description="Directory for storing database and persistent data"
+    )
 
-    # Timezone Configuration
-    timezone: str = Field(default="UTC", description="Application timezone")
-
-    @model_validator(mode="after")
-    def validate_provider_configs(self):
-        """Validate that required provider-specific configurations are present."""
-        if self.llm_provider == "openrouter" and not self.openrouter_api_key:
+    @field_validator("openrouter_api_key")
+    @classmethod
+    def validate_openrouter_api_key(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        """Validate OpenRouter API key is present when OpenRouter is selected."""
+        if info.data.get("llm_provider") == "openrouter" and not v:
             raise ValueError("OpenRouter API key is required when using OpenRouter")
+        return v
 
-        if self.llm_provider == "zen" and not self.zen_api_key:
+    @field_validator("zen_api_key")
+    @classmethod
+    def validate_zen_api_key(
+        cls, v: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        """Validate Zen API key is present when Zen is selected."""
+        if info.data.get("llm_provider") == "zen" and not v:
             raise ValueError("Zen API key is required when using Opencode Zen")
-
-        return self
+        return v
 
     def get_required_fields(self) -> list[str]:
         """Get list of required fields that must be set for the app to function."""
@@ -122,14 +131,20 @@ class Settings(BaseModel):
         return env_dict
 
     @classmethod
-    def from_env_file(cls, env_path: str = ".env") -> "Settings":
-        """Load settings from .env file if it exists."""
+    def from_env_file(cls, env_path: str = ".env", validate: bool = True) -> "Settings":
+        """Load settings from .env file if it exists.
+
+        Args:
+            env_path: Path to .env file
+            validate: Whether to validate the settings (False for initial setup)
+        """
         if not os.path.exists(env_path):
-            return cls()
+            # Create settings without validation for initial setup
+            if not validate:
+                return cls.model_construct()
+            raise FileNotFoundError(f".env file not found at {env_path}")
 
         # Load existing .env file
-        from dotenv import load_dotenv
-
         load_dotenv(env_path)
 
         # Build settings from environment
@@ -150,5 +165,9 @@ class Settings(BaseModel):
                     )
                 else:
                     settings_dict[field_name] = env_value
+
+        # Use model_construct to bypass validation if requested
+        if not validate:
+            return cls.model_construct(**settings_dict)
 
         return cls(**settings_dict)

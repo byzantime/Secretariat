@@ -40,16 +40,26 @@ def create_app(config=None):  # noqa: C901
         else:
             app.config.from_object(config)
 
+    # Check if settings are configured - if not, enter setup mode
+    from src.models.settings import Settings
+
+    try:
+        settings = Settings.from_env_file()
+
+        # Check if required API keys are configured
+        # If both API keys are None, we're in initial setup
+        if not settings.openrouter_api_key and not settings.zen_api_key:
+            app.config["SETUP_MODE"] = True
+        else:
+            app.config["SETUP_MODE"] = False
+    except Exception:
+        # Settings validation failed - enter setup mode
+        app.config["SETUP_MODE"] = True
+
     # Initialize extensions (each extension has init_app)
     from src.extensions import init_extensions
 
     init_extensions(app)
-
-    # Initialize Flask-WTF
-    from flask_wtf.csrf import CSRFProtect
-
-    csrf = CSRFProtect()
-    csrf.init_app(app)
 
     # Login manager.
     auth_manager = QuartAuth(
@@ -76,37 +86,16 @@ def create_app(config=None):  # noqa: C901
 
     register_error_handlers(app)
 
-    # Settings check - redirect to settings if required fields are missing
+    # Setup mode guard - redirect to settings if in setup mode
     @app.before_request
-    async def check_required_settings():
-        """Check if required settings are configured, redirect to settings page if not."""
-        # Skip check for settings page itself
-        if request.endpoint == "main.settings":
+    async def setup_mode_guard():
+        """Redirect to settings page if app is in setup mode."""
+        # Skip check for settings page itself and static files
+        if request.endpoint in ("main.settings", "static"):
             return
 
-        try:
-            from src.models.settings import Settings
-
-            settings = Settings.from_env_file()
-            required_fields = settings.get_required_fields()
-
-            # Check if any required fields are missing
-            missing_fields = []
-            for field in required_fields:
-                value = getattr(settings, field)
-                if not value or value == "":
-                    missing_fields.append(field)
-
-            if missing_fields:
-                from quart import flash
-
-                await flash(
-                    f"Missing required settings: {', '.join(missing_fields)}", "error"
-                )
-                return redirect("/settings")
-
-        except Exception:
-            # If settings model fails to load, redirect to settings
+        # If in setup mode, redirect to settings
+        if app.config.get("SETUP_MODE", False):
             return redirect("/settings")
 
     @app.before_request

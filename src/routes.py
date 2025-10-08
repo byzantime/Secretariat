@@ -3,6 +3,7 @@
 import asyncio
 from typing import Optional
 
+from dotenv import load_dotenv
 from quart import Blueprint
 from quart import current_app
 from quart import flash
@@ -16,7 +17,9 @@ from quart_auth import current_user
 from src.blueprints.auth import auth_bp
 from src.blueprints.browser_auth import browser_auth_bp
 from src.blueprints.telegram import telegram_bp
+from src.config import Config
 from src.config import save_settings_to_env
+from src.extensions import init_feature_extensions
 from src.forms import SettingsForm
 from src.models.settings import Settings
 
@@ -132,42 +135,51 @@ async def settings():
     """Settings page for environment variables."""
     form = SettingsForm()
 
-    if request.method == "POST":
-        # Manually populate form with request data for async compatibility
-        form_data = await request.form
-        form.process(form_data)
+    # Get setup mode status
+    setup_mode = current_app.config.get("SETUP_MODE", False)
 
-        if form.validate_on_submit():
-            try:
-                # Convert form data to settings
-                settings_dict = form.to_settings_dict()
-                settings = Settings(**settings_dict)
+    # Load existing settings if available
+    if request.method == "GET":
+        existing_settings = Settings.from_env_file(validate=False)
+        form.populate_from_settings(existing_settings)
 
-                # Save to .env file
-                save_settings_to_env(settings)
+    if form.validate_on_submit():
+        # Convert form data to settings
+        settings_dict = form.to_settings_dict()
+        settings = Settings(**settings_dict)
 
-                # Flash success message
-                await flash(
-                    "Settings saved successfully! Please restart the application.",
-                    "success",
-                )
+        # Save to .env file
+        save_settings_to_env(settings)
 
-                # Redirect to main page
-                return redirect("/")
+        # Reload environment variables
+        load_dotenv(override=True)
 
-            except Exception as e:
-                await flash(f"Error saving settings: {str(e)}", "error")
-        else:
-            await flash("Please correct the errors below.", "error")
+        # Update app config with new settings from environment
+        import os
+
+        for key in dir(Config):
+            if key.isupper() and not key.startswith("_"):
+                env_value = os.environ.get(key)
+                if env_value is not None:
+                    current_app.config[key] = env_value
+
+        # Settings are valid - exit setup mode and initialize features
+        if setup_mode:
+            current_app.config["SETUP_MODE"] = False
+
+        # Initialize feature extensions with hot-reload
+        init_feature_extensions(current_app)
+        await flash(
+            "Settings updated successfully!",
+            "success",
+        )
+
+        # Redirect to main page
+        return redirect("/")
     else:
-        # Load existing settings if available
-        try:
-            existing_settings = Settings.from_env_file()
-            form.populate_from_settings(existing_settings)
-        except Exception:
-            pass  # Use form defaults
+        current_app.logger.debug(form.errors)
 
-    return await render_template("settings.html", form=form)
+    return await render_template("settings.html", form=form, setup_mode=setup_mode)
 
 
 def register_blueprints(app):

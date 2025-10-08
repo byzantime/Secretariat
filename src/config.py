@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 from src.models.settings import Settings
 
 # Load settings from .env file if it exists
-settings = Settings.from_env_file()
+# Use validate=False to allow loading settings without validation for initial setup
+settings = Settings.from_env_file(validate=False)
 
 # Load environment variables (will override .env file values)
 load_dotenv()
@@ -19,17 +20,11 @@ def env_bool(key: str, default: bool = False) -> bool:
 
 class Config:
     # Use settings from model, but allow environment variables to override
-    DEBUG = env_bool("DEBUG", settings.debug if hasattr(settings, "debug") else False)
-    LOG_LEVEL = os.environ.get(
-        "LOG_LEVEL", settings.log_level if hasattr(settings, "log_level") else "INFO"
-    )
+    DEBUG = env_bool("DEBUG", settings.debug)
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", settings.log_level)
     SECRET_KEY = os.environ.get(
         "SECRET_KEY",
-        (
-            settings.secret_key
-            if hasattr(settings, "secret_key")
-            else "dev-secret-key-change-in-production"
-        ),
+        settings.secret_key,
     )
     QUART_AUTH_COOKIE_SECURE = not DEBUG  # Allow insecure cookies in debug mode
 
