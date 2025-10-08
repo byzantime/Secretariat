@@ -4,7 +4,14 @@
 
 {% block content %}
 <!-- Three-section flexbox layout -->
-<div class="h-screen flex flex-col bg-gray-100">
+<div class="h-screen flex flex-col bg-gray-100 relative">
+
+    <!-- Settings icon (top-right corner) -->
+    <a href="{{ url_for('main.settings') }}"
+       class="absolute top-4 right-4 text-rose-700 hover:text-rose-900 transition-colors z-10"
+       title="Settings">
+        <i class="fa-regular fa-star text-2xl"></i>
+    </a>
 
     <!-- 1. Conversation area (fills available space, can shrink when others grow) -->
     <div id="conversation-area"
