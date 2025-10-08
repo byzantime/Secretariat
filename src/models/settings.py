@@ -2,7 +2,7 @@ import os
 from typing import Literal
 from typing import Optional
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import ValidationInfo
@@ -123,7 +123,7 @@ class Settings(BaseModel):
         """Convert settings to a dictionary suitable for writing to .env file."""
         env_dict = {}
 
-        for field_name, field_info in self.model_fields.items():
+        for field_name, field_info in self.__class__.model_fields.items():
             value = getattr(self, field_name)
             if value is not None:
                 env_dict[field_name.upper()] = str(value)
@@ -144,14 +144,14 @@ class Settings(BaseModel):
                 return cls.model_construct()
             raise FileNotFoundError(f".env file not found at {env_path}")
 
-        # Load existing .env file
-        load_dotenv(env_path)
+        # Load existing .env file into a dictionary
+        env_values = dotenv_values(env_path)
 
         # Build settings from environment
         settings_dict = {}
         for field_name, field_info in cls.model_fields.items():
             env_name = field_name.upper()
-            env_value = os.environ.get(env_name)
+            env_value = env_values.get(env_name)
             if env_value is not None:
                 # Convert to appropriate type
                 if field_info.annotation is int:

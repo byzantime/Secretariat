@@ -112,7 +112,7 @@ def _validate_with_pydantic(self, extra_validators=None):
 
 def _populate_from_settings(self, settings: Settings):
     """Populate form fields from settings model."""
-    for field_name in settings.model_fields.keys():
+    for field_name in Settings.model_fields.keys():
         if hasattr(self, field_name):
             value = getattr(settings, field_name)
             if value is not None:
@@ -141,7 +141,7 @@ def _to_settings_dict(self) -> Dict[str, Any]:
 def create_settings_form() -> type[FlaskForm]:
     """Dynamically create a settings form from the Pydantic Settings model."""
     # Fields to exclude from the form (internal/hidden fields)
-    excluded_fields = {"debug", "log_level", "secret_key"}
+    excluded_fields = {"debug", "log_level", "secret_key", "database_name", "data_dir"}
 
     # Build form fields dynamically
     form_fields = {}

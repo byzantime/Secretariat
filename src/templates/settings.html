@@ -27,7 +27,8 @@
                 <div class="ml-3">
                     <h3 class="text-lg font-medium text-white">Welcome to Secretariat!</h3>
                     <div class="mt-2 text-lg text-white">
-                        <p>To get started, please configure an <strong>LLM Provider</strong> below. This will enable your AI assistant and unlock all features of Secretariat.</p>
+                        <p>To get started, please configure an <strong>LLM Provider</strong> below. This will enable your AI assistant.</p>
+                        <p class="mt-2">For the best experience, we also recommend configuring <strong>Telegram</strong> to interact with your assistant from anywhere.</p>
                     </div>
                 </div>
             </div>
@@ -64,10 +65,11 @@
                     'hint': {
                         'text': 'Choose an LLM provider'
                     },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
                     'errorMessage': {
                         'text': form.llm_provider.errors[0]
                     } if form.llm_provider.errors else none,
-                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 <div id="openrouter-fields" class="space-y-4" style="display: {% if form.llm_provider.data == 'openrouter' %}block{% else %}none{% endif %}">
@@ -82,10 +84,11 @@
                         'hint': {
                             'html': '<a href="https://openrouter.ai/keys" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Get an API key</a> <i class="fas fa-external-link-alt text-xs"></i>'
                         },
+                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                        'autocomplete': false,
                         'errorMessage': {
                             'text': form.openrouter_api_key.errors[0]
                         } if form.openrouter_api_key.errors else none,
-                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                     }) }}
 
                     {{ input({
@@ -99,10 +102,11 @@
                         'hint': {
                             'html': '<a href="https://openrouter.ai/models" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Browse available models</a> <i class="fas fa-external-link-alt text-xs"></i>'
                         },
+                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                        'autocomplete': false,
                         'errorMessage': {
                             'text': form.openrouter_model.errors[0]
                         } if form.openrouter_model.errors else none,
-                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                     }) }}
                 </div>
 
@@ -118,10 +122,11 @@
                         'hint': {
                             'html': '<a href="https://opencode.ai/auth" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Get an API key</a> <i class="fas fa-external-link-alt text-xs"></i>'
                         },
+                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                        'autocomplete': false,
                         'errorMessage': {
                             'text': form.zen_api_key.errors[0]
                         } if form.zen_api_key.errors else none,
-                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                     }) }}
 
                     {{ input({
@@ -135,10 +140,11 @@
                         'hint': {
                             'html': '<a href="https://opencode.ai/docs/zen/#endpoints" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Browse available models</a> <i class="fas fa-external-link-alt text-xs"></i>'
                         },
+                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                        'autocomplete': false,
                         'errorMessage': {
                             'text': form.zen_model.errors[0]
                         } if form.zen_model.errors else none,
-                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                     }) }}
                 </div>
             </div>
@@ -159,10 +165,11 @@
                     "hint": {
                         "html": 'Message <a href="https://t.me/botfather" target="_blank" class="text-blue-600 hover:text-blue-800 underline">@BotFather</a> <i class="fas fa-external-link-alt text-xs"></i> on Telegram, send <code class="bg-gray-100 px-1 py-0.5 rounded">/newbot</code>, and follow the instructions to get your bot token'
                     },
+                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
                     "errorMessage": {
                         "text": form.telegram_bot_token.errors[0]
                     } if form.telegram_bot_token.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
@@ -176,10 +183,11 @@
                     "hint": {
                         "html": 'For local development, use <a href="https://ngrok.com/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">ngrok</a> <i class="fas fa-external-link-alt text-xs"></i> to create a public URL: <code class="bg-gray-100 px-1 py-0.5 rounded">ngrok http 5000</code>'
                     },
+                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
                     "errorMessage": {
                         "text": form.telegram_webhook_url.errors[0]
                     } if form.telegram_webhook_url.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
@@ -193,10 +201,11 @@
                     "hint": {
                         "text": "IDs of Telegram users you wish to allow to use your Secretariat"
                     },
+                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
                     "errorMessage": {
                         "text": form.telegram_allowed_users.errors[0]
                     } if form.telegram_allowed_users.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
             </div>
         </div>
@@ -213,10 +222,11 @@
                     'label': {
                         'text': form.browser_use_model.label.text
                     },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
                     'errorMessage': {
                         'text': form.browser_use_model.errors[0]
                     } if form.browser_use_model.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
@@ -227,10 +237,11 @@
                     'label': {
                         'text': form.browser_user_data_dir.label.text
                     },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
                     'errorMessage': {
                         'text': form.browser_user_data_dir.errors[0]
                     } if form.browser_user_data_dir.errors else none,
-                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
@@ -241,10 +252,11 @@
                     'label': {
                         'text': form.browser_device.label.text
                     },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
                     'errorMessage': {
                         'text': form.browser_device.errors[0]
                     } if form.browser_device.errors else none,
-                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
             </div>
         </div>
@@ -254,68 +266,72 @@
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Memory System Configuration</h2>
             <div class="space-y-4">
                 {{ input({
-                    "name": "qdrant_host",
-                    "id": "qdrant_host",
-                    "type": "text",
-                    "value": form.qdrant_host.data or '',
-                    "label": {
-                        "text": form.qdrant_host.label.text
+                    'name': "qdrant_host",
+                    'id': "qdrant_host",
+                    'type': "text",
+                    'value': form.qdrant_host.data or '',
+                    'label': {
+                        'text': form.qdrant_host.label.text
                     },
-                    "hint": {
-                        "html": 'Use <code class="bg-gray-100 px-1 py-0.5 rounded">localhost</code> for local Docker (<code class="bg-gray-100 px-1 py-0.5 rounded">docker run -p 6333:6333 qdrant/qdrant</code>) or get a cluster from <a href="https://cloud.qdrant.io/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Qdrant Cloud</a> <i class="fas fa-external-link-alt text-xs"></i>'
+                    'hint': {
+                        'html': 'Use <code class="bg-gray-100 px-1 py-0.5 rounded">localhost</code> for local Docker (<code class="bg-gray-100 px-1 py-0.5 rounded">docker run -p 6333:6333 qdrant/qdrant</code>) or get a cluster from <a href="https://cloud.qdrant.io/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Qdrant Cloud</a> <i class="fas fa-external-link-alt text-xs"></i>'
                     },
-                    "errorMessage": {
-                        "text": form.qdrant_host.errors[0]
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.qdrant_host.errors[0]
                     } if form.qdrant_host.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
-                    "name": "qdrant_port",
-                    "id": "qdrant_port",
-                    "type": "number",
-                    "value": form.qdrant_port.data or '',
-                    "label": {
-                        "text": form.qdrant_port.label.text
+                    'name': "qdrant_port",
+                    'id': "qdrant_port",
+                    'type': "number",
+                    'value': form.qdrant_port.data or '',
+                    'label': {
+                        'text': form.qdrant_port.label.text
                     },
-                    "hint": {
-                        "text": "Default port is 6333 for local Qdrant"
+                    'hint': {
+                        'text': "Default port is 6333 for local Qdrant"
                     },
-                    "errorMessage": {
-                        "text": form.qdrant_port.errors[0]
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.qdrant_port.errors[0]
                     } if form.qdrant_port.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
-                    "name": "qdrant_api_key",
-                    "id": "qdrant_api_key",
-                    "type": "password",
-                    "value": form.qdrant_api_key.data or '',
-                    "label": {
-                        "text": form.qdrant_api_key.label.text
+                    'name': "qdrant_api_key",
+                    'id': "qdrant_api_key",
+                    'type': "password",
+                    'value': form.qdrant_api_key.data or '',
+                    'label': {
+                        'text': form.qdrant_api_key.label.text
                     },
-                    "hint": {
-                        "html": 'Only required for <a href="https://cloud.qdrant.io/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Qdrant Cloud</a> <i class="fas fa-external-link-alt text-xs"></i>. Leave empty for local Docker setup'
+                    'hint': {
+                        'html': 'Only required for <a href="https://cloud.qdrant.io/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Qdrant Cloud</a> <i class="fas fa-external-link-alt text-xs"></i>. Leave empty for local Docker setup'
                     },
-                    "errorMessage": {
-                        "text": form.qdrant_api_key.errors[0]
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.qdrant_api_key.errors[0]
                     } if form.qdrant_api_key.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
-                    "name": "memory_collection_name",
-                    "id": "memory_collection_name",
-                    "type": "text",
-                    "value": form.memory_collection_name.data or '',
-                    "label": {
-                        "text": form.memory_collection_name.label.text
+                    'name': "memory_collection_name",
+                    'id': "memory_collection_name",
+                    'type': "text",
+                    'value': form.memory_collection_name.data or '',
+                    'label': {
+                        'text': form.memory_collection_name.label.text
                     },
-                    "errorMessage": {
-                        "text": form.memory_collection_name.errors[0]
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.memory_collection_name.errors[0]
                     } if form.memory_collection_name.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
             </div>
         </div>
@@ -325,20 +341,21 @@
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Browser Human Assistance</h2>
             <div class="space-y-4">
                 {{ input({
-                    "name": "assistance_link_expiration",
-                    "id": "assistance_link_expiration",
-                    "type": "number",
-                    "value": form.assistance_link_expiration.data or '',
-                    "label": {
-                        "text": form.assistance_link_expiration.label.text
+                    'name': "assistance_link_expiration",
+                    'id': "assistance_link_expiration",
+                    'type': "number",
+                    'value': form.assistance_link_expiration.data or '',
+                    'label': {
+                        'text': form.assistance_link_expiration.label.text
                     },
-                    "hint": {
-                        "text": "300 seconds is 5 minutes"
+                    'hint': {
+                        'text': "300 seconds is 5 minutes"
                     },
-                    "errorMessage": {
-                        "text": form.assistance_link_expiration.errors[0]
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.assistance_link_expiration.errors[0]
                     } if form.assistance_link_expiration.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
             </div>
         </div>
@@ -348,45 +365,46 @@
             <h2 class="text-xl font-semibold text-gray-900 mb-4">VNC Configuration</h2>
             <div class="space-y-4">
                 {{ input({
-                    "name": "vnc_display",
-                    "id": "vnc_display",
-                    "type": "text",
-                    "value": form.vnc_display.data or '',
-                    "label": {
-                        "text": form.vnc_display.label.text
+                    'name': "vnc_display",
+                    'id': "vnc_display",
+                    'type': "text",
+                    'value': form.vnc_display.data or '',
+                    'label': {
+                        'text': form.vnc_display.label.text
                     },
-                    "errorMessage": {
-                        "text": form.vnc_display.errors[0]
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'errorMessage': {
+                        'text': form.vnc_display.errors[0]
                     } if form.vnc_display.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
-                    "name": "vnc_port",
-                    "id": "vnc_port",
-                    "type": "number",
-                    "value": form.vnc_port.data or '',
-                    "label": {
-                        "text": form.vnc_port.label.text
+                    'name': "vnc_port",
+                    'id': "vnc_port",
+                    'type': "number",
+                    'value': form.vnc_port.data or '',
+                    'label': {
+                        'text': form.vnc_port.label.text
                     },
-                    "errorMessage": {
-                        "text": form.vnc_port.errors[0]
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'errorMessage': {
+                        'text': form.vnc_port.errors[0]
                     } if form.vnc_port.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
 
                 {{ input({
-                    "name": "novnc_port",
-                    "id": "novnc_port",
-                    "type": "number",
-                    "value": form.novnc_port.data or '',
-                    "label": {
-                        "text": form.novnc_port.label.text
+                    'name': "novnc_port",
+                    'id': "novnc_port",
+                    'type': "number",
+                    'value': form.novnc_port.data or '',
+                    'label': {
+                        'text': form.novnc_port.label.text
                     },
-                    "errorMessage": {
-                        "text": form.novnc_port.errors[0]
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.novnc_port.errors[0]
                     } if form.novnc_port.errors else none,
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
             </div>
         </div>
@@ -403,10 +421,11 @@
                     'label': {
                         'text': form.timezone.label.text
                     },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
                     'errorMessage': {
                         'text': form.timezone.errors[0]
                     } if form.timezone.errors else none,
-                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none"
                 }) }}
             </div>
         </div>
