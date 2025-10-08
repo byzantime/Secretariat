@@ -40,16 +40,16 @@ def create_app(config=None):  # noqa: C901
         else:
             app.config.from_object(config)
 
-    # Initialize Sentry if DSN is configured and not in debug mode
-    if app.config.get("SENTRY_DSN") and not app.config.get("DEBUG"):
-        import sentry_sdk
-
-        sentry_sdk.init(dsn=app.config["SENTRY_DSN"])
-
     # Initialize extensions (each extension has init_app)
     from src.extensions import init_extensions
 
     init_extensions(app)
+
+    # Initialize Flask-WTF
+    from flask_wtf.csrf import CSRFProtect
+
+    csrf = CSRFProtect()
+    csrf.init_app(app)
 
     # Login manager.
     auth_manager = QuartAuth(
@@ -75,6 +75,39 @@ def create_app(config=None):  # noqa: C901
     from src.error_handlers import register_error_handlers
 
     register_error_handlers(app)
+
+    # Settings check - redirect to settings if required fields are missing
+    @app.before_request
+    async def check_required_settings():
+        """Check if required settings are configured, redirect to settings page if not."""
+        # Skip check for settings page itself
+        if request.endpoint == "main.settings":
+            return
+
+        try:
+            from src.models.settings import Settings
+
+            settings = Settings.from_env_file()
+            required_fields = settings.get_required_fields()
+
+            # Check if any required fields are missing
+            missing_fields = []
+            for field in required_fields:
+                value = getattr(settings, field)
+                if not value or value == "":
+                    missing_fields.append(field)
+
+            if missing_fields:
+                from quart import flash
+
+                await flash(
+                    f"Missing required settings: {', '.join(missing_fields)}", "error"
+                )
+                return redirect("/settings")
+
+        except Exception:
+            # If settings model fails to load, redirect to settings
+            return redirect("/settings")
 
     @app.before_request
     def setup_session():
@@ -103,8 +136,7 @@ def create_app(config=None):  # noqa: C901
         # Check if user is authenticated first
         if await current_user.is_authenticated:
             # Load additional user data if needed
-            user = await current_user.load_user_data()  # type: ignore
-            g.user = user
+            g.user = current_user
         else:
             g.user = None
 

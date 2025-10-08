@@ -24,7 +24,6 @@ async def app():
         "DEBUG": True,
         "SERVER_NAME": "localhost",
         "SECRET_KEY": "test_key",
-        "SENTRY_DSN": "",  # Disable Sentry for tests
     }
 
     # Mock database and user manager extensions to avoid SQLAlchemy dependencies

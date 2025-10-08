@@ -33,14 +33,16 @@ dependencies = [
     "quart-auth",
     "quart-compress",
     "quart-flask-patch",
+    "flask-wtf",
+    "wtforms",
     "sqlalchemy[asyncio]",
-    "sentry-sdk",
     "python-telegram-bot[webhooks]",
     "fastembed",
     "qdrant-client",
     "vaderSentiment",
     "itsdangerous",
     "novnc",
+    "deepmerge>=2.0",
 ]
 
 [project.optional-dependencies]

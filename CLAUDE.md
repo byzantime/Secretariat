@@ -122,7 +122,6 @@ Required:
 
 Optional:
 - `DEBUG`: Enable debug mode (default: False)
-- `SENTRY_DSN`: Error tracking
 - `LOG_LEVEL`: Logging level (default: INFO)
 - `TELEGRAM_BOT_TOKEN`: Telegram bot integration
 - `TELEGRAM_WEBHOOK_URL`: Webhook endpoint for Telegram

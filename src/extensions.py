@@ -14,6 +14,7 @@ from src.modules.novnc_proxy import NoVNCProxy
 from src.modules.scheduling_service import SchedulingService
 from src.modules.user_messaging_service import CommunicationService
 from src.modules.vnc_server import VNCServer
+from src.modules.wtforms_helpers import WTFormsHelpers
 
 # Create instances without initializing
 compress = Compress()
@@ -30,6 +31,7 @@ human_assistance_service = HumanAssistanceService()
 assistance_monitor = AssistanceMonitor()
 vnc_server = VNCServer()
 novnc_proxy = NoVNCProxy()
+wtforms_helpers = WTFormsHelpers()
 
 
 def init_extensions(app):
@@ -50,3 +52,4 @@ def init_extensions(app):
     assistance_monitor.init_app(app)
     vnc_server.init_app(app)
     novnc_proxy.init_app(app)
+    wtforms_helpers.init_app(app)

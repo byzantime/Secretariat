@@ -5,7 +5,9 @@ from typing import Optional
 
 from quart import Blueprint
 from quart import current_app
+from quart import flash
 from quart import make_response
+from quart import redirect
 from quart import render_template
 from quart import request
 from quart import stream_with_context
@@ -14,6 +16,9 @@ from quart_auth import current_user
 from src.blueprints.auth import auth_bp
 from src.blueprints.browser_auth import browser_auth_bp
 from src.blueprints.telegram import telegram_bp
+from src.config import save_settings_to_env
+from src.forms import SettingsForm
+from src.models.settings import Settings
 
 # Create blueprints for different parts of the app
 main_bp = Blueprint("main", __name__)
@@ -120,6 +125,49 @@ async def chat_events():
         },
     )
     return response
+
+
+@main_bp.route("/settings", methods=["GET", "POST"], strict_slashes=False)
+async def settings():
+    """Settings page for environment variables."""
+    form = SettingsForm()
+
+    if request.method == "POST":
+        # Manually populate form with request data for async compatibility
+        form_data = await request.form
+        form.process(form_data)
+
+        if form.validate_on_submit():
+            try:
+                # Convert form data to settings
+                settings_dict = form.to_settings_dict()
+                settings = Settings(**settings_dict)
+
+                # Save to .env file
+                save_settings_to_env(settings)
+
+                # Flash success message
+                await flash(
+                    "Settings saved successfully! Please restart the application.",
+                    "success",
+                )
+
+                # Redirect to main page
+                return redirect("/")
+
+            except Exception as e:
+                await flash(f"Error saving settings: {str(e)}", "error")
+        else:
+            await flash("Please correct the errors below.", "error")
+    else:
+        # Load existing settings if available
+        try:
+            existing_settings = Settings.from_env_file()
+            form.populate_from_settings(existing_settings)
+        except Exception:
+            pass  # Use form defaults
+
+    return await render_template("settings.html", form=form)
 
 
 def register_blueprints(app):
