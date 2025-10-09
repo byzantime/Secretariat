@@ -5,8 +5,8 @@ from typing import Optional
 from dotenv import dotenv_values
 from pydantic import BaseModel
 from pydantic import Field
-from pydantic import ValidationInfo
 from pydantic import field_validator
+from pydantic_core import PydanticCustomError
 
 
 class Settings(BaseModel):
@@ -82,22 +82,24 @@ class Settings(BaseModel):
 
     @field_validator("openrouter_api_key")
     @classmethod
-    def validate_openrouter_api_key(
-        cls, v: Optional[str], info: ValidationInfo
-    ) -> Optional[str]:
+    def validate_openrouter_api_key(cls, v, info):
         """Validate OpenRouter API key is present when OpenRouter is selected."""
         if info.data.get("llm_provider") == "openrouter" and not v:
-            raise ValueError("OpenRouter API key is required when using OpenRouter")
+            raise PydanticCustomError(
+                "missing_api_key",
+                "OpenRouter API key is required when using OpenRouter",
+            )
         return v
 
     @field_validator("zen_api_key")
     @classmethod
-    def validate_zen_api_key(
-        cls, v: Optional[str], info: ValidationInfo
-    ) -> Optional[str]:
+    def validate_zen_api_key(cls, v, info):
         """Validate Zen API key is present when Zen is selected."""
         if info.data.get("llm_provider") == "zen" and not v:
-            raise ValueError("Zen API key is required when using Opencode Zen")
+            raise PydanticCustomError(
+                "missing_api_key",
+                "Zen API key is required when using Opencode Zen",
+            )
         return v
 
     def get_required_fields(self) -> list[str]:
@@ -107,8 +109,10 @@ class Settings(BaseModel):
         # Required fields based on provider
         if self.llm_provider == "openrouter":
             required.append("openrouter_api_key")
+            required.append("openrouter_model")
         elif self.llm_provider == "zen":
             required.append("zen_api_key")
+            required.append("zen_model")
 
         # Other required fields
         if self.telegram_bot_token:

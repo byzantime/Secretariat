@@ -140,6 +140,11 @@ async def settings():
         existing_settings = Settings.from_env_file(validate=False)
         form.populate_from_settings(existing_settings)
 
+        # In setup mode always validate to show what needs fixing
+        # Skip CSRF validation since this is a GET request
+        if setup_mode:
+            form.validate(skip_csrf=True)
+
     if form.validate_on_submit():
         # Convert form data to settings
         settings_dict = form.to_settings_dict()

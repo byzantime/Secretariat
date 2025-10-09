@@ -44,16 +44,13 @@ def create_app(config=None):  # noqa: C901
     from src.models.settings import Settings
 
     try:
-        settings = Settings.from_env_file()
+        # Try to fully validate settings
+        Settings.from_env_file(validate=True)
 
-        # Check if required API keys are configured
-        # If both API keys are None, we're in initial setup
-        if not settings.openrouter_api_key and not settings.zen_api_key:
-            app.config["SETUP_MODE"] = True
-        else:
-            app.config["SETUP_MODE"] = False
+        # Settings validation passed
+        app.config["SETUP_MODE"] = False
     except Exception:
-        # Settings validation failed - enter setup mode
+        # Unexpected error - enter setup mode with generic error
         app.config["SETUP_MODE"] = True
 
     # Initialize extensions (each extension has init_app)

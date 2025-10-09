@@ -82,17 +82,29 @@ def _get_wtform_field_for_pydantic_field(
         return StringField(description, default=default, validators=field_validators)
 
 
-def _validate_with_pydantic(self, extra_validators=None):
-    """Custom validation using Pydantic model validation."""
-    # Call parent validation
-    if not FlaskForm.validate(self, extra_validators):
-        return False
+def _validate_with_pydantic(self, extra_validators=None, skip_csrf=False):
+    """Custom validation using Pydantic model validation.
+
+    Args:
+        extra_validators: Additional validators to run
+        skip_csrf: If True, skips WTForms validation (including CSRF). Useful for
+                   validating existing settings on GET requests.
+    """
+    # Track validation results from both WTForms and Pydantic
+    wtforms_valid = True
+    pydantic_valid = True
+
+    # Call parent validation only if not skipping CSRF
+    # Don't return early - collect all errors from both validators
+    if not skip_csrf:
+        wtforms_valid = FlaskForm.validate(self, extra_validators)
 
     # Use Pydantic model validation as single source of truth
     try:
         settings_dict = self.to_settings_dict()
         Settings(**settings_dict)
     except ValidationError as e:
+        pydantic_valid = False
         # Map Pydantic validation errors to form field errors
         for error in e.errors():
             field_name = error["loc"][0] if error["loc"] else None
@@ -100,14 +112,23 @@ def _validate_with_pydantic(self, extra_validators=None):
 
             if field_name and hasattr(self, field_name):
                 field = getattr(self, field_name)
+                # Convert field.errors tuple to list if needed, then append
+                if isinstance(field.errors, tuple):
+                    field.errors = list(field.errors)
                 field.errors.append(error_msg)
                 # Also add to form.errors dict for error summary
                 if field_name not in self.errors:
                     self.errors[field_name] = []
                 self.errors[field_name].append(error_msg)
-        return False
+            elif not field_name:
+                # Model-level validation error without specific field
+                # Add to a general "_schema" error list for display in error summary
+                if "_schema" not in self.errors:
+                    self.errors["_schema"] = []
+                self.errors["_schema"].append(error_msg)
 
-    return True
+    # Return True only if both validators passed
+    return wtforms_valid and pydantic_valid
 
 
 def _populate_from_settings(self, settings: Settings):

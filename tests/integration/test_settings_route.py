@@ -75,13 +75,30 @@ async def app_in_setup_mode():
     """Create app in setup mode for testing."""
     with tempfile.TemporaryDirectory():
         with patch("src.models.settings.Settings.from_env_file") as mock_load:
-            # Return settings without API keys (triggers setup mode)
-            mock_settings = Settings.model_construct(
-                llm_provider="zen",
-                zen_api_key=None,
-                openrouter_api_key=None,
-            )
-            mock_load.return_value = mock_settings
+            # Make from_env_file raise an exception when validate=True
+            # to trigger setup mode, but return incomplete settings when validate=False
+            def mock_from_env(env_path=".env", validate=True):
+                if validate:
+                    # Simulate validation failure - missing API key
+                    from pydantic import ValidationError
+
+                    raise ValidationError.from_exception_data(
+                        "Settings",
+                        [{
+                            "type": "missing_api_key",
+                            "loc": ("zen_api_key",),
+                            "msg": "Zen API key is required when using Opencode Zen",
+                            "input": None,
+                        }],
+                    )
+                # Return settings without API keys when validation is skipped
+                return Settings.model_construct(
+                    llm_provider="zen",
+                    zen_api_key=None,
+                    openrouter_api_key=None,
+                )
+
+            mock_load.side_effect = mock_from_env
 
             with patch("src.extensions.init_extensions") as mock_init:
                 # Mock the init_extensions to only call init_assets and wtforms_helpers
