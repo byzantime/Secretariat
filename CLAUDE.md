@@ -61,7 +61,10 @@ npm run build
 
 ### Running the Application
 ```bash
-# Development server (with auto-reload)
+# Development server (with auto-restart on settings changes)
+./local_build.sh
+
+# Or run directly (no auto-restart)
 python main.py
 
 # Using uv
@@ -71,6 +74,12 @@ uv run python main.py
 docker pull ghcr.io/byzantime/secretariat:latest
 docker run -p 8080:8080 ghcr.io/byzantime/secretariat:latest
 ```
+
+**Auto-Restart Behavior:**
+- Both `local_build.sh` and `entrypoint.sh` (Docker) automatically restart the app when settings are changed
+- When settings are saved, the app exits cleanly (exit code 0) and the script restarts it immediately
+- In local development, press Ctrl+C to stop the application completely (bypasses auto-restart)
+- Unexpected crashes (non-zero exit) stop the app in local mode, but Docker waits 5s and retries
 
 ### Code Quality
 ```bash

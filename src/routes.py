@@ -1,14 +1,13 @@
 """Routes.py."""
 
 import asyncio
+import os
 from typing import Optional
 
-from dotenv import load_dotenv
 from quart import Blueprint
 from quart import current_app
 from quart import flash
 from quart import make_response
-from quart import redirect
 from quart import render_template
 from quart import request
 from quart import stream_with_context
@@ -17,9 +16,7 @@ from quart_auth import current_user
 from src.blueprints.auth import auth_bp
 from src.blueprints.browser_auth import browser_auth_bp
 from src.blueprints.telegram import telegram_bp
-from src.config import Config
 from src.config import save_settings_to_env
-from src.extensions import init_feature_extensions
 from src.forms import SettingsForm
 from src.models.settings import Settings
 
@@ -151,31 +148,34 @@ async def settings():
         # Save to .env file
         save_settings_to_env(settings)
 
-        # Reload environment variables
-        load_dotenv(override=True)
+        # Schedule app shutdown after a short delay to allow response to be sent
+        # Docker/systemd will automatically restart the container/service
+        async def delayed_shutdown():
+            """Shutdown the application after a brief delay."""
+            await asyncio.sleep(0.5)  # Give time for response to be sent
+            current_app.logger.info(
+                "Settings saved. Shutting down for restart by container"
+                " orchestration..."
+            )
+            # Exit cleanly - Docker/systemd will restart the app
+            os._exit(0)
 
-        # Update app config with new settings from environment
-        import os
+        # Schedule the shutdown task but don't await it
+        asyncio.create_task(delayed_shutdown())
 
-        for key in dir(Config):
-            if key.isupper() and not key.startswith("_"):
-                env_value = os.environ.get(key)
-                if env_value is not None:
-                    current_app.config[key] = env_value
-
-        # Settings are valid - exit setup mode and initialize features
-        if setup_mode:
-            current_app.config["SETUP_MODE"] = False
-
-        # Initialize feature extensions with hot-reload
-        init_feature_extensions(current_app)
+        # Flash success message
         await flash(
-            "Settings updated successfully!",
+            "Settings saved! Application will restart automatically...",
             "success",
         )
 
-        # Redirect to main page
-        return redirect("/")
+        # Return success response immediately
+        return await render_template(
+            "settings.html",
+            form=form,
+            setup_mode=setup_mode,
+            settings_saved=True,
+        )
     else:
         current_app.logger.debug(form.errors)
 

@@ -24,6 +24,8 @@ uv sync          # Install dependencies
 
 On first run, you'll be guided to configure an LLM provider (Opencode Zen or OpenRouter) via the Settings page. Additional optional features like Telegram integration, memory system (Qdrant), and browser automation can also be configured through Settings.
 
+**Note:** The application automatically restarts when settings are changed to apply the new configuration. Press Ctrl+C to stop the application completely.
+
 ## Development
 
 ```bash

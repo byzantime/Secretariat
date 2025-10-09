@@ -183,7 +183,7 @@ class TestSettingsRoutePost:
 
     @pytest.mark.asyncio
     async def test_post_valid_settings_redirects(self, app_with_settings):
-        """Test that POST /settings with valid data redirects to home."""
+        """Test that POST /settings with valid data schedules app restart."""
         client = app_with_settings.test_client()
 
         with patch("src.routes.Settings.from_env_file") as mock_load:
@@ -193,7 +193,7 @@ class TestSettingsRoutePost:
             )
 
             with patch("src.routes.save_settings_to_env"):
-                with patch("src.routes.init_feature_extensions"):
+                with patch("asyncio.create_task") as mock_create_task:
                     response = await client.post(
                         "/settings",
                         form={
@@ -221,9 +221,10 @@ class TestSettingsRoutePost:
                         follow_redirects=False,
                     )
 
-                    # Should redirect to home
-                    assert response.status_code in (302, 303)
-                    assert response.headers.get("Location") == "/"
+                    # Should schedule restart task
+                    assert mock_create_task.called
+                    # Should return 200 (renders template)
+                    assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_post_invalid_settings_shows_errors(self, app_with_settings):
@@ -275,7 +276,7 @@ class TestSettingsRoutePost:
             )
 
             with patch("src.routes.save_settings_to_env") as mock_save:
-                with patch("src.routes.init_feature_extensions"):
+                with patch("asyncio.create_task"):
                     await client.post(
                         "/settings",
                         form={
@@ -370,7 +371,7 @@ class TestSetupModeExit:
 
     @pytest.mark.asyncio
     async def test_saving_valid_settings_exits_setup_mode(self, app_in_setup_mode):
-        """Test that saving valid settings exits setup mode."""
+        """Test that saving valid settings schedules app restart."""
         client = app_in_setup_mode.test_client()
 
         with patch("src.routes.Settings.from_env_file") as mock_load:
@@ -380,7 +381,7 @@ class TestSetupModeExit:
             )
 
             with patch("src.routes.save_settings_to_env"):
-                with patch("src.routes.init_feature_extensions"):
+                with patch("asyncio.create_task") as mock_create_task:
                     # Post valid settings
                     response = await client.post(
                         "/settings",
@@ -405,11 +406,10 @@ class TestSetupModeExit:
                         follow_redirects=False,
                     )
 
-                    # Should redirect to home
-                    assert response.status_code in (302, 303)
-
-                    # App should have exited setup mode
-                    assert app_in_setup_mode.config.get("SETUP_MODE") is False
+                    # Should schedule restart task
+                    assert mock_create_task.called
+                    # Should return 200 (renders template)
+                    assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_after_setup_home_page_accessible(self, app_with_settings):
