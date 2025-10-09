@@ -37,7 +37,7 @@ class HumanAssistanceService:
         Args:
             app: Quart application instance
         """
-        self.serializer = URLSafeTimedSerializer(app.config["ASSISTANCE_SECRET_KEY"])
+        self.serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
 
         # Ensure browser profile directory exists
         profile_dir = Path(app.config["BROWSER_USER_DATA_DIR"])

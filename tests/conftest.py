@@ -12,7 +12,6 @@ def app():
         "DEBUG": True,
         "SERVER_NAME": "localhost",
         "SECRET_KEY": "test_key",
-        "SENTRY_DSN": "",  # Disable Sentry for tests
     }
     app = create_app(test_config)
 

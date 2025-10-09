@@ -16,6 +16,7 @@ venv/
 
 # Dotenv files
 .env
+.env.bak
 
 # Asset bundles (auto-generated)
 src/static/.webassets-cache/

@@ -1,143 +1,195 @@
-import re
+"""Dynamic form generation from Pydantic Settings model."""
+
+from typing import Any
+from typing import Dict
+from typing import get_args
+from typing import get_origin
 
 from flask_wtf import FlaskForm
-from wtforms.fields import PasswordField
-from wtforms.fields import StringField
-from wtforms.validators import Email
-from wtforms.validators import InputRequired
-from wtforms.validators import Length
-from wtforms.validators import ValidationError
+from pydantic import ValidationError
+from pydantic.fields import FieldInfo
+from wtforms import BooleanField
+from wtforms import IntegerField
+from wtforms import SelectField
+from wtforms import StringField
+from wtforms import validators
+
+from src.models.settings import Settings
 
 
-class HostnameValidation:
-    """Custom hostname validation class based on WTForms' internal HostnameValidation.
-
-    Validates hostnames/domains without requiring a URL scheme, adapted from
-    WTForms source code to handle our specific domain validation needs.
-    """
-
-    hostname_part = re.compile(r"^(xn-|[a-z0-9_]+)(-[a-z0-9_-]+)*$", re.IGNORECASE)
-    tld_part = re.compile(r"^([a-z]{2,20}|xn--([a-z0-9]+-)*[a-z0-9]+)$", re.IGNORECASE)
-
-    def __init__(self, require_tld=True, allow_ip=False):
-        self.require_tld = require_tld
-        self.allow_ip = allow_ip
-
-    def __call__(self, hostname):
-        if not hostname:
-            return True  # Empty hostnames are handled by Optional/Required validators
-
-        # Basic IP validation if allowed (simplified version)
-        if self.allow_ip:
-            # Simple IPv4 check
-            parts = hostname.split(".")
-            if len(parts) == 4 and all(
-                part.isdigit() and 0 <= int(part) <= 255 for part in parts
-            ):
-                return True
-
-        # Handle IDNA encoding
-        try:
-            hostname_bytes = hostname.encode("idna")
-            hostname = hostname_bytes.decode("ascii")
-        except (UnicodeError, UnicodeDecodeError):
-            return False
-
-        # Length check
-        if len(hostname) > 253:
-            return False
-
-        # Split into parts and validate each
-        parts = hostname.split(".")
-
-        for part in parts:
-            if not part or len(part) > 63:
-                return False
-            if not self.hostname_part.match(part):
-                return False
-
-        # TLD validation if required
-        if self.require_tld and (len(parts) < 2 or not self.tld_part.match(parts[-1])):
-            return False
-
-        return True
-
-
-def validate_domain_with_optional_port(message=None):
-    """Custom validator for domain names with optional port numbers.
-
-    Uses a custom HostnameValidation class (based on WTForms internal implementation)
-    to properly validate domains while allowing optional port specifications.
-    Accepts formats like:
-    - domain.com
-    - subdomain.domain.com
-    - domain.com:8080
-    - stun.l.google.com:19302
-    """
-    if message is None:
-        message = "Invalid domain format"
-
-    def _validate_domain_with_port(form, field):
-        if not field.data or not field.data.strip():
-            return
-
-        domain_with_port = field.data.strip()
-
-        # Split domain and port if port exists
-        if ":" in domain_with_port:
-            domain_part, port_part = domain_with_port.rsplit(":", 1)
-
-            # Validate port is numeric and within valid range
-            try:
-                port_num = int(port_part)
-                if not (1 <= port_num <= 65535):
-                    raise ValidationError(
-                        f"{message}: Port must be between 1 and 65535"
-                    )
-            except ValueError:
-                raise ValidationError(f"{message}: Port must be numeric")
-        else:
-            domain_part = domain_with_port
-
-        # Validate hostname using our custom validator
-        hostname_validator = HostnameValidation(require_tld=True, allow_ip=False)
-        if not hostname_validator(domain_part):
-            raise ValidationError(f"{message}: Invalid domain name format")
-
-    return _validate_domain_with_port
-
-
-def validate_domain_or_ip(message=None):
-    """Custom validator for domain names or IP addresses (no port allowed).
-
-    Uses a custom HostnameValidation class to validate both domain names and IP addresses.
-    Suitable for SIP domain configuration where both domains and IPs are valid.
-    """
-    if message is None:
-        message = "Invalid domain or IP address format"
-
-    def _validate_domain_or_ip(form, field):
-        if not field.data or not field.data.strip():
-            return
-
-        domain_or_ip = field.data.strip()
-
-        # Check for port (not allowed in this validator)
-        if ":" in domain_or_ip:
-            raise ValidationError(f"{message}: Port numbers not allowed")
-
-        # Validate hostname or IP using our custom validator with IP support enabled
-        hostname_validator = HostnameValidation(require_tld=True, allow_ip=True)
-        if not hostname_validator(domain_or_ip):
-            raise ValidationError(
-                f"{message}: Invalid domain name or IP address format"
-            )
-
-    return _validate_domain_or_ip
-
-
-class LoginForm(FlaskForm):
-    email = StringField(
-        "Email address", [Email(message="Invalid email address"), InputRequired()]
+def _is_optional(annotation) -> bool:
+    """Check if a type annotation is Optional."""
+    return get_origin(annotation) is type(None) or (
+        get_origin(annotation) in (type(None), type(None) | type)
+        or (hasattr(annotation, "__args__") and type(None) in get_args(annotation))
     )
-    password = PasswordField("Password", [Length(min=10, max=256), InputRequired()])
+
+
+def _unwrap_optional(annotation):
+    """Unwrap Optional type to get the inner type."""
+    if hasattr(annotation, "__origin__"):
+        origin = get_origin(annotation)
+        if origin is type(None) | type:  # Union with None (Optional)
+            args = get_args(annotation)
+            non_none_args = [arg for arg in args if arg is not type(None)]
+            if non_none_args:
+                return non_none_args[0]
+    return annotation
+
+
+def _is_literal(annotation) -> bool:
+    """Check if annotation is a Literal type."""
+    return (
+        hasattr(annotation, "__origin__")
+        and annotation.__origin__.__name__ == "Literal"
+    )
+
+
+def _get_wtform_field_for_pydantic_field(
+    field_name: str, field_info: FieldInfo, annotation
+):
+    """Convert a Pydantic field to a WTForms field."""
+    # Get field metadata
+    description = field_info.description or field_name.replace("_", " ").title()
+    default = field_info.default if field_info.default is not None else ""
+
+    # Check if field is Optional and unwrap if needed
+    is_optional = _is_optional(annotation)
+    annotation = _unwrap_optional(annotation)
+
+    # Build validators list
+    field_validators = []
+    if not is_optional and annotation is not bool:
+        field_validators.append(validators.DataRequired())
+
+    # Check for Literal annotation (for choices)
+    if _is_literal(annotation):
+        choices = [(choice, choice.title()) for choice in get_args(annotation)]
+        return SelectField(
+            description,
+            choices=choices,
+            default=default,
+            validators=field_validators,
+        )
+
+    # Map Python types to WTForms fields
+    if annotation is bool:
+        return BooleanField(description, default=default)
+    elif annotation is int:
+        return IntegerField(description, default=default, validators=field_validators)
+    else:
+        # Default to StringField for strings and optional strings
+        return StringField(description, default=default, validators=field_validators)
+
+
+def _validate_with_pydantic(self, extra_validators=None, skip_csrf=False):
+    """Custom validation using Pydantic model validation.
+
+    Args:
+        extra_validators: Additional validators to run
+        skip_csrf: If True, skips WTForms validation (including CSRF). Useful for
+                   validating existing settings on GET requests.
+    """
+    # Track validation results from both WTForms and Pydantic
+    wtforms_valid = True
+    pydantic_valid = True
+
+    # Call parent validation only if not skipping CSRF
+    # Don't return early - collect all errors from both validators
+    if not skip_csrf:
+        wtforms_valid = FlaskForm.validate(self, extra_validators)
+
+    # Use Pydantic model validation as single source of truth
+    try:
+        settings_dict = self.to_settings_dict()
+        Settings(**settings_dict)
+    except ValidationError as e:
+        pydantic_valid = False
+        # Map Pydantic validation errors to form field errors
+        for error in e.errors():
+            field_name = error["loc"][0] if error["loc"] else None
+            error_msg = error["msg"]
+
+            if field_name and hasattr(self, field_name):
+                field = getattr(self, field_name)
+                # Convert field.errors tuple to list if needed, then append
+                if isinstance(field.errors, tuple):
+                    field.errors = list(field.errors)
+                field.errors.append(error_msg)
+                # Also add to form.errors dict for error summary
+                if field_name not in self.errors:
+                    self.errors[field_name] = []
+                self.errors[field_name].append(error_msg)
+            elif not field_name:
+                # Model-level validation error without specific field
+                # Add to a general "_schema" error list for display in error summary
+                if "_schema" not in self.errors:
+                    self.errors["_schema"] = []
+                self.errors["_schema"].append(error_msg)
+
+    # Return True only if both validators passed
+    return wtforms_valid and pydantic_valid
+
+
+def _populate_from_settings(self, settings: Settings):
+    """Populate form fields from settings model."""
+    for field_name in Settings.model_fields.keys():
+        if hasattr(self, field_name):
+            value = getattr(settings, field_name)
+            if value is not None:
+                field = getattr(self, field_name)
+                field.data = value
+
+
+def _to_settings_dict(self) -> Dict[str, Any]:
+    """Convert form data to settings dictionary."""
+    settings_dict = {}
+    for field_name, field in self._fields.items():
+        # Skip CSRF token field
+        if field_name == "csrf_token":
+            continue
+
+        value = field.data
+        # Include all values, even empty strings, so Pydantic validation can catch missing required fields
+        # Convert empty strings to None for optional fields
+        if value == "":
+            settings_dict[field_name] = None
+        elif value is not None:
+            settings_dict[field_name] = value
+    return settings_dict
+
+
+def create_settings_form() -> type[FlaskForm]:
+    """Dynamically create a settings form from the Pydantic Settings model."""
+    # Fields to exclude from the form (internal/hidden fields)
+    excluded_fields = {"debug", "log_level", "secret_key", "database_name", "data_dir"}
+
+    # Build form fields dynamically
+    form_fields = {}
+
+    for field_name, field_info in Settings.model_fields.items():
+        if field_name in excluded_fields:
+            continue
+
+        # Get the field annotation
+        annotation = field_info.annotation
+
+        # Create the WTForms field
+        wtf_field = _get_wtform_field_for_pydantic_field(
+            field_name, field_info, annotation
+        )
+        form_fields[field_name] = wtf_field
+
+    # Create the form class dynamically
+    SettingsFormClass = type("SettingsForm", (FlaskForm,), form_fields)
+
+    # Add custom methods to the form class
+    SettingsFormClass.validate = _validate_with_pydantic
+    SettingsFormClass.populate_from_settings = _populate_from_settings
+    SettingsFormClass.to_settings_dict = _to_settings_dict
+
+    return SettingsFormClass
+
+
+# Create the form class at module level
+SettingsForm = create_settings_form()

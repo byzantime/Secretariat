@@ -1,154 +1,50 @@
 # Secretariat
 
-An open-source AI-powered personal assistant.
+An open-source AI-powered personal assistant with scheduling, memory, web browsing, and multi-platform support (web UI and Telegram).
 
-## Running Secretariat
+Secretariat currently lacks authentication and is ONLY suitable for deploying on your local network.
+
+## Quick Start
 
 ### Using Docker (Recommended)
 
 ```bash
-# Create your .env file based on .env.example
 docker pull ghcr.io/byzantime/secretariat:latest
-docker run -p 8080:8080 --env-file .env ghcr.io/byzantime/secretariat:latest
+docker run -p 8080:8080 ghcr.io/byzantime/secretariat:latest
 
-# The application will run on http://localhost:8080
+# Visit http://localhost:8080 and configure your LLM provider in Settings
 ```
-
 
 ### Running Locally
 
 ```bash
-uv sync          # Install required dependencies
-./local_build.sh # Build CSS, run migrations, and start the app on http://localhost:5000
+uv sync          # Install dependencies
+./local_build.sh # Build CSS, run migrations, and start on http://localhost:5000
 ```
 
-### Scheduling tasks
-```
-You          14:38:00
-remind me to take the rubbish out every other week, starting next thursday evening
-Assistant    14:38:00
-Done! I've set up a reminder to take the rubbish out every 14 days starting next Thursday (September 25th) at 7 PM.
-```
+On first run, you'll be guided to configure an LLM provider (Opencode Zen or OpenRouter) via the Settings page. Additional optional features like Telegram integration, memory system (Qdrant), and browser automation can also be configured through Settings.
 
-### Online Shopping
-
-Online shopping via Telegram demonstrating use of the shopping list, web browser and todo tools and requesting assistance from the user when necessary.
-
-...
-
-**You**: add homegrown orange juice to the shopping list - largest size
-
-**Secretariat**:
-_Adding to shopping list..._
-
-Added Homegrown Orange Juice (largest size) to your shopping list.
-
-**You**: What's on the shopping list?
-
-**Secretariat**:
-_Getting shopping list..._
-
-Shopping List:
-1. Colby Cheese
-2. Whittaker's Hazelnut Chocolate
-3. Proper Crisps (3 packs)
-4. Big Pack Of Indomie Mi Goreng Noodles
-5. Homegrown Orange Juice (largest size)
-
-**You**: alright now go buy it all from newworld.co.nz.  lemme know when it's all in the basket
-
-**Secretariat**:
-_Updating todos..._
-
-_Using the web browser..._
-
-I need your help with `https://www.newworld.co.nz/`
-
-[Please log in (or start shopping by selecting your store) so I can add the requested groceries to the cart.]()
-
-_Link expires in 5 minutes_
+**Note:** The application automatically restarts when settings are changed to apply the new configuration. Press Ctrl+C to stop the application completely.
 
 ## Development
 
 ```bash
-uv sync --extra dev  # Install optional dev dependencies
-
-# Run the app - it activates the venv, rebuilds CSS and starts the app:
-./local_build.sh
+uv sync --extra dev  # Install dev dependencies
+./local_build.sh     # Build CSS and start the app
 ```
 
-### Telegram Integration
-
-To enable Telegram integration:
-
-1. **Create a Telegram bot**:
-   - Message [@BotFather](https://t.me/botfather) on Telegram
-   - Send `/newbot` and follow the instructions
-   - Save the bot token you receive
-
-2. **Install and start ngrok**:
-   ```bash
-   # Install ngrok (if not already installed)
-   # Visit https://ngrok.com/ to download
-
-   # Start ngrok tunnel to your local app
-   ngrok http 5000
-   ```
-
-3. **Add Telegram envvars to your .env file**:
-   ```bash
-   TELEGRAM_BOT_TOKEN=your_bot_token_from_botfather
-   TELEGRAM_WEBHOOK_URL=https://your-ngrok-url.ngrok.io
-   TELEGRAM_ALLOWED_USERS=123456789,987654321  # Users you'd like to allow to use your bot.
-   ```
-
-4. **Start the app**:
-   ```bash
-   python main.py
-   ```
-
-The webhook will be automatically configured when the app starts. You can now message your bot on Telegram and it will communicate with your local development server!
-
-### Qdrant Setup
-
-Secretariat uses [Qdrant](https://qdrant.tech/) as a vector database for its memory system. You can run Qdrant locally with Docker or use Qdrant Cloud.
-
-#### Local Docker Setup
-
-Run Qdrant locally using Docker:
+### Updating Dependencies
 
 ```bash
-docker run -p 6333:6333 qdrant/qdrant
-```
-
-Add these environment variables to your `.env` file:
-
-```bash
-# Local Qdrant configuration (default values)
-QDRANT_HOST=localhost
-QDRANT_PORT=6333
-```
-
-#### Qdrant Cloud Setup
-
-1. **Create a Qdrant Cloud cluster**:
-   - Visit [https://cloud.qdrant.io/](https://cloud.qdrant.io/)
-   - Sign up and create a new cluster
-   - Note your cluster URL and API key
-
-2. **Configure cloud connection** in your `.env` file:
-   ```bash
-   # Qdrant Cloud configuration
-   QDRANT_HOST=https://your-cluster-url.qdrant.tech
-   QDRANT_API_KEY=your-api-key-here
-   ```
-
-The memory system will automatically create the required collection (`memories`) when the application starts.
-
-### Updating dependencies:
-
-```bash
-# Add the new dependency to pyproject.toml [project] dependencies section, then:
+# Add dependency to pyproject.toml [project] dependencies, then:
 uv lock
 uv sync
+```
+
+### Code Quality
+
+```bash
+ruff check . --fix --unsafe-fixes  # Lint and format code
+black .                            # Format code
+pytest                             # Run tests
 ```

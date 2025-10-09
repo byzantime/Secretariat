@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% from "jinja_ui_kit/components/input/macro.html" import input %}
+{% from "jinja_ui_kit/components/select/macro.html" import select %}
+{% from "jinja_ui_kit/components/checkboxes/macro.html" import checkboxes %}
+{% from "jinja_ui_kit/components/button/macro.html" import button %}
+{% from "jinja_ui_kit/components/error-summary/macro.html" import errorSummary %}
+
+{% block title %}Settings - Secretariat{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-6 max-w-4xl relative">
+    <!-- Home icon (top-right corner) -->
+    <a href="{{ url_for('main.index') }}"
+       class="absolute top-6 right-6 text-rose-700 hover:text-rose-900 transition-colors z-10"
+       title="Home">
+        <i class="fa-regular fa-house text-2xl"></i>
+    </a>
+
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
+        {% if setup_mode %}
+        <div class="bg-rose-700 p-4 mb-4 mt-4" role="alert">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-star text-white text-xl"></i>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-lg font-medium text-white">Welcome to Secretariat!</h3>
+                    <div class="mt-2 text-lg text-white">
+                        <p>To get started, please configure an <strong>LLM Provider</strong> below. This will enable your AI assistant.</p>
+                        <p class="mt-2">For the best experience, we also recommend configuring <strong>Telegram</strong> to interact with your assistant from anywhere.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-gray-600">Configure your Secretariat application settings.</p>
+        {% endif %}
+    </div>
+
+    <form method="POST" class="space-y-8">
+        {{ form.hidden_tag() }}
+
+        {% if form.errors %}
+            {{ errorSummary(wtforms_errors(form, {
+                "titleText": "There is a problem"
+            })) }}
+        {% endif %}
+
+        <!-- LLM Provider Configuration -->
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">LLM Provider Configuration</h2>
+            <div class="space-y-4">
+                {{ select({
+                    'name': 'llm_provider',
+                    'id': 'llm_provider',
+                    'value': form.llm_provider.data,
+                    'items': [
+                        {'value': 'zen', 'text': 'Opencode Zen'},
+                        {'value': "openrouter", 'text': 'OpenRouter'}
+                    ],
+                    'label': {
+                        'text': form.llm_provider.label.text
+                    },
+                    'hint': {
+                        'text': 'Choose an LLM provider'
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.llm_provider.errors[0]
+                    } if form.llm_provider.errors else none,
+                }) }}
+
+                <div id="openrouter-fields" class="space-y-4" style="display: {% if form.llm_provider.data == 'openrouter' %}block{% else %}none{% endif %}">
+                    {{ input({
+                        'name': "openrouter_api_key",
+                        'id': "openrouter_api_key",
+                        'type': "password",
+                        'value': form.openrouter_api_key.data or '',
+                        'label': {
+                            'text': form.openrouter_api_key.label.text
+                        },
+                        'hint': {
+                            'html': '<a href="https://openrouter.ai/keys" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Get an API key</a> <i class="fas fa-external-link-alt text-xs"></i>'
+                        },
+                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                        'autocomplete': false,
+                        'errorMessage': {
+                            'text': form.openrouter_api_key.errors[0]
+                        } if form.openrouter_api_key.errors else none,
+                    }) }}
+
+                    {{ input({
+                        'name': "openrouter_model",
+                        'id': "openrouter_model",
+                        'type': "text",
+                        'value': form.openrouter_model.data or '',
+                        'label': {
+                            'text': form.openrouter_model.label.text
+                        },
+                        'hint': {
+                            'html': '<a href="https://openrouter.ai/models" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Browse available models</a> <i class="fas fa-external-link-alt text-xs"></i>'
+                        },
+                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                        'autocomplete': false,
+                        'errorMessage': {
+                            'text': form.openrouter_model.errors[0]
+                        } if form.openrouter_model.errors else none,
+                    }) }}
+                </div>
+
+                <div id="zen-fields" class="space-y-4" style="display: {% if form.llm_provider.data == 'zen' %}block{% else %}none{% endif %}">
+                    {{ input({
+                        'name': "zen_api_key",
+                        'id': "zen_api_key",
+                        'type': "password",
+                        'value': form.zen_api_key.data or '',
+                        'label': {
+                            'text': form.zen_api_key.label.text
+                        },
+                        'hint': {
+                            'html': '<a href="https://opencode.ai/auth" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Get an API key</a> <i class="fas fa-external-link-alt text-xs"></i>'
+                        },
+                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                        'autocomplete': false,
+                        'errorMessage': {
+                            'text': form.zen_api_key.errors[0]
+                        } if form.zen_api_key.errors else none,
+                    }) }}
+
+                    {{ input({
+                        'name': "zen_model",
+                        'id': "zen_model",
+                        'type': "text",
+                        'value': form.zen_model.data or '',
+                        'label': {
+                            'text': form.zen_model.label.text
+                        },
+                        'hint': {
+                            'html': '<a href="https://opencode.ai/docs/zen/#endpoints" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Browse available models</a> <i class="fas fa-external-link-alt text-xs"></i>'
+                        },
+                        'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                        'autocomplete': false,
+                        'errorMessage': {
+                            'text': form.zen_model.errors[0]
+                        } if form.zen_model.errors else none,
+                    }) }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Telegram Configuration -->
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Telegram Configuration</h2>
+            <div class="space-y-4">
+                {{ input({
+                    "name": "telegram_bot_token",
+                    "id": "telegram_bot_token",
+                    "type": "password",
+                    "value": form.telegram_bot_token.data or '',
+                    "label": {
+                        "text": form.telegram_bot_token.label.text
+                    },
+                    "hint": {
+                        "html": 'Message <a href="https://t.me/botfather" target="_blank" class="text-blue-600 hover:text-blue-800 underline">@BotFather</a> <i class="fas fa-external-link-alt text-xs"></i> on Telegram, send <code class="bg-gray-100 px-1 py-0.5 rounded">/newbot</code>, and follow the instructions to get your bot token'
+                    },
+                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    "errorMessage": {
+                        "text": form.telegram_bot_token.errors[0]
+                    } if form.telegram_bot_token.errors else none,
+                }) }}
+
+                {{ input({
+                    "name": "telegram_webhook_url",
+                    "id": "telegram_webhook_url",
+                    "type": "text",
+                    "value": form.telegram_webhook_url.data or '',
+                    "label": {
+                        "text": form.telegram_webhook_url.label.text
+                    },
+                    "hint": {
+                        "html": 'For local development, use <a href="https://ngrok.com/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">ngrok</a> <i class="fas fa-external-link-alt text-xs"></i> to create a public URL: <code class="bg-gray-100 px-1 py-0.5 rounded">ngrok http 5000</code>'
+                    },
+                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    "errorMessage": {
+                        "text": form.telegram_webhook_url.errors[0]
+                    } if form.telegram_webhook_url.errors else none,
+                }) }}
+
+                {{ input({
+                    "name": "telegram_allowed_users",
+                    "id": "telegram_allowed_users",
+                    "type": "text",
+                    "value": form.telegram_allowed_users.data or '',
+                    "label": {
+                        "text": form.telegram_allowed_users.label.text
+                    },
+                    "hint": {
+                        "text": "IDs of Telegram users you wish to allow to use your Secretariat"
+                    },
+                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    "errorMessage": {
+                        "text": form.telegram_allowed_users.errors[0]
+                    } if form.telegram_allowed_users.errors else none,
+                }) }}
+            </div>
+        </div>
+
+        <!-- Browser Configuration -->
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Browser Configuration</h2>
+            <div class="space-y-4">
+                {{ input({
+                    'name': "browser_use_model",
+                    'id': "browser_use_model",
+                    'type': "text",
+                    'value': form.browser_use_model.data or '',
+                    'label': {
+                        'text': form.browser_use_model.label.text
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.browser_use_model.errors[0]
+                    } if form.browser_use_model.errors else none,
+                }) }}
+
+                {{ input({
+                    'name': "browser_user_data_dir",
+                    'id': "browser_user_data_dir",
+                    'type': "text",
+                    'value': form.browser_user_data_dir.data or '',
+                    'label': {
+                        'text': form.browser_user_data_dir.label.text
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.browser_user_data_dir.errors[0]
+                    } if form.browser_user_data_dir.errors else none,
+                }) }}
+
+                {{ input({
+                    'name': "browser_device",
+                    'id': "browser_device",
+                    'type': "text",
+                    'value': form.browser_device.data or '',
+                    'label': {
+                        'text': form.browser_device.label.text
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.browser_device.errors[0]
+                    } if form.browser_device.errors else none,
+                }) }}
+            </div>
+        </div>
+
+        <!-- Memory System Configuration -->
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Memory System Configuration</h2>
+            <div class="space-y-4">
+                {{ input({
+                    'name': "qdrant_host",
+                    'id': "qdrant_host",
+                    'type': "text",
+                    'value': form.qdrant_host.data or '',
+                    'label': {
+                        'text': form.qdrant_host.label.text
+                    },
+                    'hint': {
+                        'html': 'Use <code class="bg-gray-100 px-1 py-0.5 rounded">localhost</code> for local Docker (<code class="bg-gray-100 px-1 py-0.5 rounded">docker run -p 6333:6333 qdrant/qdrant</code>) or get a cluster from <a href="https://cloud.qdrant.io/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Qdrant Cloud</a> <i class="fas fa-external-link-alt text-xs"></i>'
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.qdrant_host.errors[0]
+                    } if form.qdrant_host.errors else none,
+                }) }}
+
+                {{ input({
+                    'name': "qdrant_port",
+                    'id': "qdrant_port",
+                    'type': "number",
+                    'value': form.qdrant_port.data or '',
+                    'label': {
+                        'text': form.qdrant_port.label.text
+                    },
+                    'hint': {
+                        'text': "Default port is 6333 for local Qdrant"
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.qdrant_port.errors[0]
+                    } if form.qdrant_port.errors else none,
+                }) }}
+
+                {{ input({
+                    'name': "qdrant_api_key",
+                    'id': "qdrant_api_key",
+                    'type': "password",
+                    'value': form.qdrant_api_key.data or '',
+                    'label': {
+                        'text': form.qdrant_api_key.label.text
+                    },
+                    'hint': {
+                        'html': 'Only required for <a href="https://cloud.qdrant.io/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">Qdrant Cloud</a> <i class="fas fa-external-link-alt text-xs"></i>. Leave empty for local Docker setup'
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.qdrant_api_key.errors[0]
+                    } if form.qdrant_api_key.errors else none,
+                }) }}
+
+                {{ input({
+                    'name': "memory_collection_name",
+                    'id': "memory_collection_name",
+                    'type': "text",
+                    'value': form.memory_collection_name.data or '',
+                    'label': {
+                        'text': form.memory_collection_name.label.text
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.memory_collection_name.errors[0]
+                    } if form.memory_collection_name.errors else none,
+                }) }}
+            </div>
+        </div>
+
+        <!-- Browser Human Assistance -->
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Browser Human Assistance</h2>
+            <div class="space-y-4">
+                {{ input({
+                    'name': "assistance_link_expiration",
+                    'id': "assistance_link_expiration",
+                    'type': "number",
+                    'value': form.assistance_link_expiration.data or '',
+                    'label': {
+                        'text': form.assistance_link_expiration.label.text
+                    },
+                    'hint': {
+                        'text': "300 seconds is 5 minutes"
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.assistance_link_expiration.errors[0]
+                    } if form.assistance_link_expiration.errors else none,
+                }) }}
+            </div>
+        </div>
+
+        <!-- VNC Configuration -->
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">VNC Configuration</h2>
+            <div class="space-y-4">
+                {{ input({
+                    'name': "vnc_display",
+                    'id': "vnc_display",
+                    'type': "text",
+                    'value': form.vnc_display.data or '',
+                    'label': {
+                        'text': form.vnc_display.label.text
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'errorMessage': {
+                        'text': form.vnc_display.errors[0]
+                    } if form.vnc_display.errors else none,
+                }) }}
+
+                {{ input({
+                    'name': "vnc_port",
+                    'id': "vnc_port",
+                    'type': "number",
+                    'value': form.vnc_port.data or '',
+                    'label': {
+                        'text': form.vnc_port.label.text
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'errorMessage': {
+                        'text': form.vnc_port.errors[0]
+                    } if form.vnc_port.errors else none,
+                }) }}
+
+                {{ input({
+                    'name': "novnc_port",
+                    'id': "novnc_port",
+                    'type': "number",
+                    'value': form.novnc_port.data or '',
+                    'label': {
+                        'text': form.novnc_port.label.text
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.novnc_port.errors[0]
+                    } if form.novnc_port.errors else none,
+                }) }}
+            </div>
+        </div>
+
+        <!-- SSL and Monitoring -->
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Timezone</h2>
+            <div class="space-y-4">
+                {{ input({
+                    'name': "timezone",
+                    'id': "timezone",
+                    'type': "text",
+                    'value': form.timezone.data or '',
+                    'label': {
+                        'text': form.timezone.label.text
+                    },
+                    'classes': "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                    'autocomplete': false,
+                    'errorMessage': {
+                        'text': form.timezone.errors[0]
+                    } if form.timezone.errors else none,
+                }) }}
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex gap-4 pt-6">
+            {{ button({
+                'text': 'Save Settings',
+                'type': 'submit',
+                'name': 'submit',
+                'variant': 'primary',
+                'classes': '!cursor-pointer !bg-rose-600 hover:!bg-rose-700 focus:!ring-rose-500',
+            }) }}
+        </div>
+    </form>
+</div>
+
+<script>
+// Dynamic form behavior for LLM provider selection
+document.addEventListener('DOMContentLoaded', function() {
+    const llmProvider = document.getElementById('llm_provider');
+    const openrouterFields = document.getElementById('openrouter-fields');
+    const zenFields = document.getElementById('zen-fields');
+
+    function toggleProviderFields() {
+        const provider = llmProvider.value;
+
+        if (openrouterFields) {
+            openrouterFields.style.display = provider === 'openrouter' ? 'block' : 'none';
+        }
+
+        if (zenFields) {
+            zenFields.style.display = provider === 'zen' ? 'block' : 'none';
+        }
+    }
+
+    llmProvider.addEventListener('change', toggleProviderFields);
+    toggleProviderFields(); // Initial state
+});
+</script>
+{% endblock %}

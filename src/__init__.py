@@ -40,11 +40,18 @@ def create_app(config=None):  # noqa: C901
         else:
             app.config.from_object(config)
 
-    # Initialize Sentry if DSN is configured and not in debug mode
-    if app.config.get("SENTRY_DSN") and not app.config.get("DEBUG"):
-        import sentry_sdk
+    # Check if settings are configured - if not, enter setup mode
+    from src.models.settings import Settings
 
-        sentry_sdk.init(dsn=app.config["SENTRY_DSN"])
+    try:
+        # Try to fully validate settings
+        Settings.from_env_file(validate=True)
+
+        # Settings validation passed
+        app.config["SETUP_MODE"] = False
+    except Exception:
+        # Unexpected error - enter setup mode with generic error
+        app.config["SETUP_MODE"] = True
 
     # Initialize extensions (each extension has init_app)
     from src.extensions import init_extensions
@@ -76,6 +83,18 @@ def create_app(config=None):  # noqa: C901
 
     register_error_handlers(app)
 
+    # Setup mode guard - redirect to settings if in setup mode
+    @app.before_request
+    async def setup_mode_guard():
+        """Redirect to settings page if app is in setup mode."""
+        # Skip check for settings page itself and static files
+        if request.endpoint in ("main.settings", "static"):
+            return
+
+        # If in setup mode, redirect to settings
+        if app.config.get("SETUP_MODE", False):
+            return redirect("/settings")
+
     @app.before_request
     def setup_session():
         """Set up session before each request.
@@ -103,8 +122,7 @@ def create_app(config=None):  # noqa: C901
         # Check if user is authenticated first
         if await current_user.is_authenticated:
             # Load additional user data if needed
-            user = await current_user.load_user_data()  # type: ignore
-            g.user = user
+            g.user = current_user
         else:
             g.user = None
 

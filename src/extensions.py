@@ -14,6 +14,7 @@ from src.modules.novnc_proxy import NoVNCProxy
 from src.modules.scheduling_service import SchedulingService
 from src.modules.user_messaging_service import CommunicationService
 from src.modules.vnc_server import VNCServer
+from src.modules.wtforms_helpers import WTFormsHelpers
 
 # Create instances without initializing
 compress = Compress()
@@ -30,10 +31,11 @@ human_assistance_service = HumanAssistanceService()
 assistance_monitor = AssistanceMonitor()
 vnc_server = VNCServer()
 novnc_proxy = NoVNCProxy()
+wtforms_helpers = WTFormsHelpers()
 
 
-def init_extensions(app):
-    """Initialize all extensions with the application."""
+def init_core_extensions(app):
+    """Initialize core extensions that don't require user configuration."""
     # Initialise in a specific order to handle dependencies
     compress.init_app(app)
     init_assets(app)
@@ -41,12 +43,26 @@ def init_extensions(app):
     database.init_app(app)  # Database must come early
     event_handler.init_app(app)
     user_manager.init_app(app)  # User manager depends on database
-    memory_service.init_app(app)  # Initialize memory service
     conversation_manager.init_app(app)  # Initialize before LLM service
+    communication_service.init_app(app)  # Initialize after event handler
+    wtforms_helpers.init_app(app)
+
+
+def init_feature_extensions(app):
+    """Initialize optional feature extensions that require user configuration."""
+    memory_service.init_app(app)  # Initialize memory service
     llm_service.init_app(app)
     scheduling_service.init_app(app)  # Initialize after database
-    communication_service.init_app(app)  # Initialize after event handler
     human_assistance_service.init_app(app)  # Initialize human assistance services
     assistance_monitor.init_app(app)
     vnc_server.init_app(app)
     novnc_proxy.init_app(app)
+
+
+def init_extensions(app):
+    """Initialize all extensions with the application."""
+    init_core_extensions(app)
+
+    # Only initialize feature extensions if not in setup mode
+    if not app.config.get("SETUP_MODE", False):
+        init_feature_extensions(app)

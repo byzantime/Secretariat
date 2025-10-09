@@ -10,10 +10,13 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="overflow-x-hidden"
+      {% if request.endpoint == 'main.index' %}
       hx-log="true"
       hx-ext="sse"
       sse-connect="{{ url_for('main.chat_events') }}"
       sse-close="close">
+      {% endif %}
+
     {% block body %}
 
     {{ flash_messages() }}

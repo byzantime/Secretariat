@@ -1,10 +1,12 @@
 """Routes.py."""
 
 import asyncio
+import os
 from typing import Optional
 
 from quart import Blueprint
 from quart import current_app
+from quart import flash
 from quart import make_response
 from quart import render_template
 from quart import request
@@ -14,6 +16,9 @@ from quart_auth import current_user
 from src.blueprints.auth import auth_bp
 from src.blueprints.browser_auth import browser_auth_bp
 from src.blueprints.telegram import telegram_bp
+from src.config import save_settings_to_env
+from src.forms import SettingsForm
+from src.models.settings import Settings
 
 # Create blueprints for different parts of the app
 main_bp = Blueprint("main", __name__)
@@ -120,6 +125,66 @@ async def chat_events():
         },
     )
     return response
+
+
+@main_bp.route("/settings", methods=["GET", "POST"], strict_slashes=False)
+async def settings():
+    """Settings page for environment variables."""
+    form = SettingsForm()
+
+    # Get setup mode status
+    setup_mode = current_app.config.get("SETUP_MODE", False)
+
+    # Load existing settings if available
+    if request.method == "GET":
+        existing_settings = Settings.from_env_file(validate=False)
+        form.populate_from_settings(existing_settings)
+
+        # In setup mode always validate to show what needs fixing
+        # Skip CSRF validation since this is a GET request
+        if setup_mode:
+            form.validate(skip_csrf=True)
+
+    if form.validate_on_submit():
+        # Convert form data to settings
+        settings_dict = form.to_settings_dict()
+        settings = Settings(**settings_dict)
+
+        # Save to .env file
+        save_settings_to_env(settings)
+
+        # Schedule app shutdown after a short delay to allow response to be sent
+        # Docker/systemd will automatically restart the container/service
+        async def delayed_shutdown():
+            """Shutdown the application after a brief delay."""
+            await asyncio.sleep(0.5)  # Give time for response to be sent
+            current_app.logger.info(
+                "Settings saved. Shutting down for restart by container"
+                " orchestration..."
+            )
+            # Exit cleanly - Docker/systemd will restart the app
+            os._exit(0)
+
+        # Schedule the shutdown task but don't await it
+        asyncio.create_task(delayed_shutdown())
+
+        # Flash success message
+        await flash(
+            "Settings saved! Application will restart automatically...",
+            "success",
+        )
+
+        # Return success response immediately
+        return await render_template(
+            "settings.html",
+            form=form,
+            setup_mode=setup_mode,
+            settings_saved=True,
+        )
+    else:
+        current_app.logger.debug(form.errors)
+
+    return await render_template("settings.html", form=form, setup_mode=setup_mode)
 
 
 def register_blueprints(app):
