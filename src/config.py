@@ -4,12 +4,17 @@ from dotenv import load_dotenv
 
 from src.models.settings import Settings
 
-# Load settings from .env file if it exists
+# Load settings to get the data directory
 # Use validate=False to allow loading settings without validation for initial setup
 settings = Settings.from_env_file(validate=False)
 
-# Load environment variables (will override .env file values)
-load_dotenv()
+# Determine data directory (env var takes precedence, otherwise use default)
+_data_dir = os.environ.get("DATA_DIR", settings.data_dir)
+os.makedirs(_data_dir, exist_ok=True)
+
+# Load .env file from data directory into os.environ
+_env_file_path = os.path.join(_data_dir, ".env")
+load_dotenv(_env_file_path)
 
 
 def env_bool(key: str, default: bool = False) -> bool:
@@ -96,8 +101,11 @@ class Config:
 
 
 def save_settings_to_env(settings: Settings) -> None:
-    """Save settings to .env file in project root."""
-    env_path = os.path.join(os.getcwd(), ".env")
+    """Save settings to .env file in data directory for persistence."""
+    # Save to data directory
+    data_dir = os.environ.get("DATA_DIR", settings.data_dir)
+    os.makedirs(data_dir, exist_ok=True)
+    env_path = os.path.join(data_dir, ".env")
 
     # Convert settings to env format
     env_dict = settings.to_env_dict()

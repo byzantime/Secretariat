@@ -77,7 +77,8 @@ class Settings(BaseModel):
     )
     database_name: str = Field(default="secretariat", description="Database file name")
     data_dir: str = Field(
-        default=".", description="Directory for storing database and persistent data"
+        default="./data",
+        description="Directory for storing database and persistent data",
     )
 
     @field_validator("openrouter_api_key")
@@ -135,13 +136,18 @@ class Settings(BaseModel):
         return env_dict
 
     @classmethod
-    def from_env_file(cls, env_path: str = ".env", validate: bool = True) -> "Settings":
+    def from_env_file(cls, env_path: str = None, validate: bool = True) -> "Settings":
         """Load settings from .env file if it exists.
 
         Args:
-            env_path: Path to .env file
+            env_path: Path to .env file (defaults to data directory)
             validate: Whether to validate the settings (False for initial setup)
         """
+        # Default to .env in the data directory
+        if env_path is None:
+            data_dir = os.environ.get("DATA_DIR", "./data")
+            env_path = os.path.join(data_dir, ".env")
+
         if not os.path.exists(env_path):
             # Create settings without validation for initial setup
             if not validate:

@@ -7,7 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH" \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    DATA_DIR=/data
 
 # Set the working directory in the container
 WORKDIR /app
@@ -41,8 +42,8 @@ RUN npm ci && \
     npx tailwindcss -i ./src/static/css/input.css -o ./src/static/css/styles.css --minify && \
     rm -rf node_modules package-lock.json
 
-# Create data directory for persistent storage
-RUN mkdir -p /app/data
+# Declare volume for persistent data
+VOLUME ["/data"]
 
 # Add entrypoint script
 COPY entrypoint.sh /entrypoint.sh

@@ -10,9 +10,30 @@ Secretariat currently lacks authentication and is ONLY suitable for deploying on
 
 ```bash
 docker pull ghcr.io/byzantime/secretariat:latest
-docker run -p 8080:8080 ghcr.io/byzantime/secretariat:latest
+docker run -d --name secretariat -p 8080:8080 \
+  -v secretariat-data:/data \
+  ghcr.io/byzantime/secretariat:latest
 
 # Visit http://localhost:8080 and configure your LLM provider in Settings
+```
+
+Data persists in the `secretariat-data` volume across container restarts and upgrades.
+
+**Upgrading to a new version:**
+```bash
+docker stop secretariat && docker rm secretariat
+docker pull ghcr.io/byzantime/secretariat:latest
+docker run -d --name secretariat -p 8080:8080 \
+  -v secretariat-data:/data \
+  ghcr.io/byzantime/secretariat:latest
+```
+
+**Optional: Direct access to data files**
+```bash
+# Use a bind mount if you want to access data files directly
+docker run -d --name secretariat -p 8080:8080 \
+  -v ~/secretariat-data:/data \
+  ghcr.io/byzantime/secretariat:latest
 ```
 
 ### Running Locally
