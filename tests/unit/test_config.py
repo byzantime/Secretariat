@@ -108,19 +108,13 @@ class TestSaveSettingsToEnv:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Change to temp directory
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(tmpdir)
-
+            # Set DATA_DIR to tmpdir so .env is written there
+            with patch.dict(os.environ, {"DATA_DIR": tmpdir}, clear=False):
                 save_settings_to_env(settings)
 
-                # Check file was created
+                # Check file was created in data directory
                 env_path = os.path.join(tmpdir, ".env")
                 assert os.path.exists(env_path)
-
-            finally:
-                os.chdir(original_cwd)
 
     def test_save_settings_to_env_writes_correct_format(self):
         """Test that save_settings_to_env writes correct env format."""
@@ -132,10 +126,8 @@ class TestSaveSettingsToEnv:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(tmpdir)
-
+            # Set DATA_DIR to tmpdir so .env is written there
+            with patch.dict(os.environ, {"DATA_DIR": tmpdir}, clear=False):
                 save_settings_to_env(settings)
 
                 # Read the file
@@ -149,9 +141,6 @@ class TestSaveSettingsToEnv:
                 assert "TIMEZONE=Europe/London" in content
                 assert "QDRANT_PORT=6334" in content
 
-            finally:
-                os.chdir(original_cwd)
-
     def test_save_settings_to_env_excludes_none_values(self):
         """Test that None values are not written to .env file."""
         settings = Settings(
@@ -161,10 +150,8 @@ class TestSaveSettingsToEnv:
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(tmpdir)
-
+            # Set DATA_DIR to tmpdir so .env is written there
+            with patch.dict(os.environ, {"DATA_DIR": tmpdir}, clear=False):
                 save_settings_to_env(settings)
 
                 env_path = os.path.join(tmpdir, ".env")
@@ -175,16 +162,11 @@ class TestSaveSettingsToEnv:
                 assert "TELEGRAM_BOT_TOKEN" not in content
                 assert "QDRANT_HOST" not in content
 
-            finally:
-                os.chdir(original_cwd)
-
     def test_save_settings_to_env_overwrites_existing(self):
         """Test that save_settings_to_env overwrites existing .env file."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            original_cwd = os.getcwd()
-            try:
-                os.chdir(tmpdir)
-
+            # Set DATA_DIR to tmpdir so .env is written there
+            with patch.dict(os.environ, {"DATA_DIR": tmpdir}, clear=False):
                 # Create initial file
                 env_path = os.path.join(tmpdir, ".env")
                 with open(env_path, "w") as f:
@@ -206,9 +188,6 @@ class TestSaveSettingsToEnv:
                 assert "OLD_VALUE" not in content
                 # New values should be present
                 assert "ZEN_API_KEY=new-key" in content
-
-            finally:
-                os.chdir(original_cwd)
 
 
 class TestConfigDatabaseUrl:

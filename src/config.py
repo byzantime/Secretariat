@@ -8,14 +8,12 @@ from src.models.settings import Settings
 # Use validate=False to allow loading settings without validation for initial setup
 settings = Settings.from_env_file(validate=False)
 
-# Ensure data directory exists
+# Determine data directory (env var takes precedence, otherwise use default)
 _data_dir = os.environ.get("DATA_DIR", settings.data_dir)
 os.makedirs(_data_dir, exist_ok=True)
 
-# Determine .env file location
+# Load .env file from data directory into os.environ
 _env_file_path = os.path.join(_data_dir, ".env")
-
-# Load environment variables from .env file if it exists (will override settings)
 load_dotenv(_env_file_path)
 
 

@@ -18,16 +18,10 @@ venv/
 .env
 .env.bak
 
+# Data directory (database, settings, browser profile)
+data/
+
 # Asset bundles (auto-generated)
 src/static/.webassets-cache/
 src/static/css/packed-*.min.css
 src/static/js/packed-*.min.js
-
-# SQLite database files
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
-
-# Browser authentication
-data/browser_profile/
