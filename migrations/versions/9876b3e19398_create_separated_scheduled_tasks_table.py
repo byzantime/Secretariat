@@ -56,8 +56,13 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index('ix_apscheduler_jobs_next_run_time', table_name='apscheduler_jobs')
-    op.drop_table('apscheduler_jobs')
+    # Drop APScheduler table if it exists
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'apscheduler_jobs' in inspector.get_table_names():
+        op.drop_index('ix_apscheduler_jobs_next_run_time', table_name='apscheduler_jobs')
+        op.drop_table('apscheduler_jobs')
+
     op.drop_index('ix_scheduled_tasks_conversation_id', table_name='scheduled_tasks')
     op.drop_index('ix_scheduled_tasks_job_id', table_name='scheduled_tasks')
     op.drop_table('scheduled_tasks')
