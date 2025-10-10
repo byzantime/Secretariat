@@ -38,8 +38,14 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_scheduled_tasks_conversation_id'), 'scheduled_tasks', ['conversation_id'], unique=False)
     op.create_index(op.f('ix_scheduled_tasks_job_id'), 'scheduled_tasks', ['job_id'], unique=True)
-    op.drop_index(op.f('ix_apscheduler_jobs_next_run_time'), table_name='apscheduler_jobs')
-    op.drop_table('apscheduler_jobs')
+
+    # Drop APScheduler table if it exists (may not exist on fresh installs)
+    # APScheduler created these tables automatically at runtime in older versions
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'apscheduler_jobs' in inspector.get_table_names():
+        op.drop_index(op.f('ix_apscheduler_jobs_next_run_time'), table_name='apscheduler_jobs')
+        op.drop_table('apscheduler_jobs')
     # ### end Alembic commands ###
 
 
