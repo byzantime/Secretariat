@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 
 import ngrok
+from quart import current_app
 
 
 class NgrokService:
@@ -16,7 +17,7 @@ class NgrokService:
         self.logger = logging.getLogger(__name__)
 
     def init_app(self, app) -> bool:
-        """Initialize the ngrok service with the Flask/Quart app."""
+        """Initialise the ngrok service with the Flask/Quart app."""
         # Always register service in extensions (even if not active)
         app.extensions["ngrok_service"] = self
 
@@ -41,8 +42,6 @@ class NgrokService:
 
     async def _start_tunnel(self):
         """Start the ngrok tunnel."""
-        from quart import current_app
-
         try:
             auth_token = current_app.config.get("NGROK_AUTH_TOKEN")
 
@@ -95,8 +94,6 @@ class NgrokService:
 
     async def _stop_tunnel(self):
         """Stop the ngrok tunnel."""
-        from quart import current_app
-
         if self.listener:
             try:
                 current_app.logger.info("Closing ngrok tunnel...")
