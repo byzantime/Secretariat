@@ -3,12 +3,7 @@
 import logging
 from typing import Optional
 
-try:
-    import ngrok
-
-    NGROK_AVAILABLE = True
-except ImportError:
-    NGROK_AVAILABLE = False
+import ngrok
 
 
 class NgrokService:
@@ -27,13 +22,6 @@ class NgrokService:
 
         public_url_mode = app.config.get("PUBLIC_URL_MODE", "ngrok")
         auth_token = app.config.get("NGROK_AUTH_TOKEN")
-
-        if not NGROK_AVAILABLE:
-            if auth_token and public_url_mode == "ngrok":
-                self.logger.warning(
-                    "Ngrok mode selected but ngrok package not installed"
-                )
-            return False
 
         if public_url_mode != "ngrok":
             self.logger.info(
