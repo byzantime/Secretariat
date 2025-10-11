@@ -43,6 +43,7 @@ dependencies = [
     "itsdangerous",
     "novnc",
     "deepmerge>=2.0",
+    "ngrok",
 ]
 
 [project.optional-dependencies]

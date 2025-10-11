@@ -62,12 +62,18 @@ class Config:
     # Scheduling Configuration
     TIMEZONE = os.environ.get("TIMEZONE", settings.timezone)
 
-    # Telegram Configuration
-    TELEGRAM_BOT_TOKEN = os.environ.get(
-        "TELEGRAM_BOT_TOKEN", settings.telegram_bot_token or ""
+    # Public URL Configuration
+    PUBLIC_URL_MODE = os.environ.get("PUBLIC_URL_MODE", settings.public_url_mode)
+    NGROK_AUTH_TOKEN = os.environ.get(
+        "NGROK_AUTH_TOKEN", settings.ngrok_auth_token or ""
     )
     TELEGRAM_WEBHOOK_URL = os.environ.get(
         "TELEGRAM_WEBHOOK_URL", settings.telegram_webhook_url or ""
+    )
+
+    # Telegram Configuration
+    TELEGRAM_BOT_TOKEN = os.environ.get(
+        "TELEGRAM_BOT_TOKEN", settings.telegram_bot_token or ""
     )
     TELEGRAM_ALLOWED_USERS = os.environ.get(
         "TELEGRAM_ALLOWED_USERS", settings.telegram_allowed_users or ""

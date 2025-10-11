@@ -135,6 +135,16 @@ async def settings():
     # Get setup mode status
     setup_mode = current_app.config.get("SETUP_MODE", False)
 
+    # Get current ngrok URL and error if available
+    ngrok_url = None
+    ngrok_error = None
+    ngrok_service = current_app.extensions.get("ngrok_service")
+    if ngrok_service:
+        if ngrok_service.is_active():
+            ngrok_url = ngrok_service.get_tunnel_url()
+        elif ngrok_service.error_message:
+            ngrok_error = ngrok_service.error_message
+
     # Load existing settings if available
     if request.method == "GET":
         existing_settings = Settings.from_env_file(validate=False)
@@ -180,11 +190,19 @@ async def settings():
             form=form,
             setup_mode=setup_mode,
             settings_saved=True,
+            ngrok_url=ngrok_url,
+            ngrok_error=ngrok_error,
         )
     else:
         current_app.logger.debug(form.errors)
 
-    return await render_template("settings.html", form=form, setup_mode=setup_mode)
+    return await render_template(
+        "settings.html",
+        form=form,
+        setup_mode=setup_mode,
+        ngrok_url=ngrok_url,
+        ngrok_error=ngrok_error,
+    )
 
 
 def register_blueprints(app):

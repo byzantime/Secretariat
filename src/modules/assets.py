@@ -1,5 +1,6 @@
 """Asset management module using Quart-Assets for cache-busting and bundling."""
 
+from jinja_ui_kit.assets import get_css_path
 from quart_assets import Bundle
 from quart_assets import QuartAssets
 
@@ -14,6 +15,7 @@ def init_assets(app):
 
     # Register bundles
     css_bundle = Bundle(
+        get_css_path(),  # jinja-ui-kit styles first
         "css/styles.css",
         "css/fontawesome.min.css",
         "css/solid.min.css",

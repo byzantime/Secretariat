@@ -14,8 +14,9 @@
       hx-log="true"
       hx-ext="sse"
       sse-connect="{{ url_for('main.chat_events') }}"
-      sse-close="close">
+      sse-close="close"
       {% endif %}
+      >
 
     {% block body %}
 

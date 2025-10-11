@@ -33,12 +33,20 @@ class Settings(BaseModel):
         default="./data/browser_profile", description="Browser user data directory"
     )
 
+    # Public URL Configuration
+    public_url_mode: Literal["ngrok", "manual"] = Field(
+        default="ngrok", description="Public URL configuration mode"
+    )
+    ngrok_auth_token: Optional[str] = Field(
+        default=None, description="Ngrok authentication token"
+    )
+    telegram_webhook_url: Optional[str] = Field(
+        default=None, description="Manual public webhook URL"
+    )
+
     # Telegram Configuration
     telegram_bot_token: Optional[str] = Field(
         default=None, description="Telegram bot token"
-    )
-    telegram_webhook_url: Optional[str] = Field(
-        default=None, description="Telegram webhook URL"
     )
     telegram_allowed_users: Optional[str] = Field(
         default=None, description="Comma-separated list of allowed Telegram user IDs"

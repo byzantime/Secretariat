@@ -117,7 +117,8 @@ pytest
 
 ### Multi-Channel Interface
 - Web UI: HTMX + Tailwind CSS
-- Telegram Bot: Webhook-based integration
+- Telegram Bot: Webhook-based integration with optional ngrok tunnel support
+- Ngrok Service: Automatic tunnel creation for local Telegram webhook connectivity (port 8080)
 - Templates use `jinja-ui-kit` for consistent components
 
 ### Platform Support
@@ -133,7 +134,8 @@ Optional:
 - `DEBUG`: Enable debug mode (default: False)
 - `LOG_LEVEL`: Logging level (default: INFO)
 - `TELEGRAM_BOT_TOKEN`: Telegram bot integration
-- `TELEGRAM_WEBHOOK_URL`: Webhook endpoint for Telegram
+- `TELEGRAM_WEBHOOK_URL`: Webhook endpoint for Telegram (optional if using ngrok)
+- `NGROK_AUTH_TOKEN`: Ngrok authentication token for automatic tunnel creation
 
 ## Testing
 
