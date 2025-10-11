@@ -114,7 +114,7 @@ async def get_webhook_info():
         return {"error": "Telegram not available"}, 500
 
     # Get the communication service
-    communication_service = current_app.extensions.get["communication_service"]
+    communication_service = current_app.extensions["communication_service"]
     telegram_channel = communication_service.channels.get("telegram")
     if not telegram_channel:
         return {"error": "Telegram channel not registered"}, 500

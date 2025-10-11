@@ -21,7 +21,7 @@ if __name__ == "__main__":
     setup_signal_handlers()
     app.logger.info("Starting Secretariat")
     try:
-        app.run(debug=app.config["DEBUG"])
+        app.run(host="0.0.0.0", port=8080, debug=app.config["DEBUG"])
     except KeyboardInterrupt:
         app.logger.info("Shutdown signal received, stopping application")
     finally:

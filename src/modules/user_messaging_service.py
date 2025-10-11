@@ -229,11 +229,10 @@ class WebUIChannel(CommunicationChannel):
         """Update status display for WebUI, prioritising todo display if todos exist."""
         try:
             # Get communication service to access current conversation
-            communication_service = current_app.extensions.get("communication_service")
+            communication_service = current_app.extensions["communication_service"]
 
             if (
-                communication_service
-                and communication_service.current_conversation
+                communication_service.current_conversation
                 and communication_service.current_conversation.todos
             ):
                 # Always show todos if they exist
@@ -323,10 +322,13 @@ class TelegramChannel(CommunicationChannel):
             await self.application.initialize()
             current_app.logger.info("Telegram bot initialized successfully")
 
-            # Auto-setup webhook if webhook URL is configured
-            if self.webhook_url:
+            # Determine webhook URL (prefer ngrok, fall back to manual)
+            webhook_url = self._get_webhook_url()
+
+            # Auto-setup webhook if webhook URL is available
+            if webhook_url:
                 current_app.logger.info("Setting up Telegram webhook automatically...")
-                webhook_success = await self.setup_webhook(self.webhook_url)
+                webhook_success = await self.setup_webhook(webhook_url)
                 if webhook_success:
                     current_app.logger.info(
                         "Telegram webhook setup completed successfully"
@@ -338,7 +340,8 @@ class TelegramChannel(CommunicationChannel):
                     )
             else:
                 current_app.logger.info(
-                    "No TELEGRAM_WEBHOOK_URL configured, skipping webhook setup"
+                    "No webhook URL available (neither ngrok nor manual), skipping"
+                    " webhook setup"
                 )
 
         except Exception as e:
@@ -348,6 +351,34 @@ class TelegramChannel(CommunicationChannel):
             # Reset bot state on failure
             self.bot = None
             self.application = None
+
+    def _get_webhook_url(self) -> Optional[str]:
+        """Get the webhook URL based on configured mode."""
+        public_url_mode = current_app.config.get("PUBLIC_URL_MODE", "ngrok")
+
+        if public_url_mode == "ngrok":
+            # Check for ngrok service
+            ngrok_service = current_app.extensions["ngrok_service"]
+            if ngrok_service.is_active():
+                ngrok_url = ngrok_service.get_tunnel_url()
+                if ngrok_url:
+                    current_app.logger.info(
+                        f"Using ngrok tunnel URL for webhook: {ngrok_url}"
+                    )
+                    return ngrok_url
+            else:
+                current_app.logger.warning(
+                    "Ngrok mode selected but tunnel is not active"
+                )
+                return None
+        else:
+            # Use manual webhook URL
+            if self.webhook_url:
+                current_app.logger.info(f"Using manual webhook URL: {self.webhook_url}")
+                return self.webhook_url
+            else:
+                current_app.logger.warning("Manual mode selected but no URL configured")
+                return None
 
     async def is_connected(self) -> bool:
         """Check if the bot is initialised and ready."""
@@ -430,18 +461,17 @@ class TelegramChannel(CommunicationChannel):
             self.register_user(chat_id)
 
         # Get communication service to send the message
-        communication_service = current_app.extensions.get("communication_service")
-        if communication_service:
-            # Emit the message event to be processed by the LLM
-            event_handler = current_app.extensions["event_handler"]
-            await event_handler.emit_to_services(
-                "chat.message",
-                {
-                    "message": text,
-                    "source_channel": "telegram",
-                    "user_id": str(chat_id),
-                },
-            )
+        current_app.extensions["communication_service"]
+        # Emit the message event to be processed by the LLM
+        event_handler = current_app.extensions["event_handler"]
+        await event_handler.emit_to_services(
+            "chat.message",
+            {
+                "message": text,
+                "source_channel": "telegram",
+                "user_id": str(chat_id),
+            },
+        )
 
     async def update_status(self, status_message: Optional[str] = None) -> bool:
         """Update status via Telegram chat action indicator."""

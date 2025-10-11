@@ -66,6 +66,12 @@ async def app_with_settings():
                 mock_db.session_factory = MagicMock(return_value=mock_session_context)
                 app.extensions["database"] = mock_db
 
+                # Mock ngrok service
+                mock_ngrok = MagicMock()
+                mock_ngrok.is_active.return_value = False
+                mock_ngrok.error_message = None
+                app.extensions["ngrok_service"] = mock_ngrok
+
                 async with app.app_context():
                     yield app
 
@@ -131,6 +137,12 @@ async def app_in_setup_mode():
                 mock_session_context.__aexit__ = AsyncMock(return_value=None)
                 mock_db.session_factory = MagicMock(return_value=mock_session_context)
                 app.extensions["database"] = mock_db
+
+                # Mock ngrok service
+                mock_ngrok = MagicMock()
+                mock_ngrok.is_active.return_value = False
+                mock_ngrok.error_message = None
+                app.extensions["ngrok_service"] = mock_ngrok
 
                 async with app.app_context():
                     yield app

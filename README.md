@@ -40,10 +40,10 @@ docker run -d --name secretariat -p 8080:8080 \
 
 ```bash
 uv sync          # Install dependencies
-./local_build.sh # Build CSS, run migrations, and start on http://localhost:5000
+./local_build.sh # Build CSS, run migrations, and start on http://localhost:8080
 ```
 
-On first run, you'll be guided to configure an LLM provider (Opencode Zen or OpenRouter) via the Settings page. Additional optional features like Telegram integration, memory system (Qdrant), and browser automation can also be configured through Settings.
+On first run, you'll be guided to configure an LLM provider (Opencode Zen or OpenRouter) via the Settings page. Additional optional features like Telegram integration (with built-in ngrok tunnel support), memory system (Qdrant), and browser automation can also be configured through Settings.
 
 **Note:** The application automatically restarts when settings are changed to apply the new configuration. Press Ctrl+C to stop the application completely.
 

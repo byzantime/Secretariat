@@ -10,6 +10,7 @@ from src.modules.human_assistance_service import HumanAssistanceService
 from src.modules.llm_service import LLMService
 from src.modules.logging_helper import LoggingHelper
 from src.modules.memory import MemoryService
+from src.modules.ngrok_service import NgrokService
 from src.modules.novnc_proxy import NoVNCProxy
 from src.modules.scheduling_service import SchedulingService
 from src.modules.user_messaging_service import CommunicationService
@@ -25,6 +26,7 @@ conversation_manager = ConversationManager()
 memory_service = MemoryService()
 llm_service = LLMService()
 scheduling_service = SchedulingService()
+ngrok_service = NgrokService()
 communication_service = CommunicationService()
 user_manager = UserManager()
 human_assistance_service = HumanAssistanceService()
@@ -44,6 +46,7 @@ def init_core_extensions(app):
     event_handler.init_app(app)
     user_manager.init_app(app)  # User manager depends on database
     conversation_manager.init_app(app)  # Initialize before LLM service
+    ngrok_service.init_app(app)  # Initialize before communication service
     communication_service.init_app(app)  # Initialize after event handler
     wtforms_helpers.init_app(app)
 

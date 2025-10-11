@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "jinja_ui_kit/components/input/macro.html" import input %}
 {% from "jinja_ui_kit/components/select/macro.html" import select %}
+{% from "jinja_ui_kit/components/radios/macro.html" import radios %}
 {% from "jinja_ui_kit/components/checkboxes/macro.html" import checkboxes %}
 {% from "jinja_ui_kit/components/button/macro.html" import button %}
 {% from "jinja_ui_kit/components/error-summary/macro.html" import errorSummary %}
@@ -150,6 +151,103 @@
             </div>
         </div>
 
+        <!-- Public URL Configuration -->
+        <div>
+            <div class="space-y-4">
+                {{ radios({
+                    "name": "public_url_mode",
+                    "id": "public_url_mode",
+                    "fieldset": {
+                        "legend": {
+                            "text": "Choose how to configure your public URL",
+                            "classes": "text-xl font-semibold text-gray-900 mb-6"
+                        }
+                    },
+                    "formGroup": {
+                        "classes": "space-y-4"
+                    },
+                    "items": [
+                        {
+                            'value': "ngrok",
+                            'text': "Use ngrok",
+                            'checked': form.public_url_mode.data == "ngrok",
+                            'label': {
+                                'classes': "!text-base"
+                            },
+                            'hint': {
+                                'text': "Recommended for home network deployments - automatically creates a secure public tunnel"
+                            },
+                            'conditional': {
+                                'html': '<div class="space-y-4">'|safe + input({
+                                    "name": "ngrok_auth_token",
+                                    "id": "ngrok_auth_token",
+                                    "type": "password",
+                                    "value": form.ngrok_auth_token.data or '',
+                                    "label": {
+                                        "text": "Ngrok Auth Token"
+                                    },
+                                    "hint": {
+                                        "html": 'Get your auth token from <a href="https://dashboard.ngrok.com/get-started/your-authtoken" target="_blank" class="text-blue-600 hover:text-blue-800 underline">ngrok dashboard</a> <i class="fas fa-external-link-alt text-xs"></i>'
+                                    },
+                                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                                    'autocomplete': false,
+                                    "errorMessage": {
+                                        "text": ngrok_error if ngrok_error else (form.ngrok_auth_token.errors[0] if form.ngrok_auth_token.errors else "")
+                                    }
+                                }) + (input({
+                                    "name": "current_ngrok_url_display",
+                                    "id": "current_ngrok_url_display",
+                                    "type": "text",
+                                    "value": ngrok_url,
+                                    "label": {
+                                        "text": "Current Public URL"
+                                    },
+                                    "hint": {
+                                        "text": "This URL is automatically generated and updated on each restart"
+                                    },
+                                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-300 bg-gray-50 px-3 py-2 text-gray-600",
+                                    'autocomplete': false,
+                                    "attributes": {
+                                        "readonly": "readonly"
+                                    }
+                                }) if ngrok_url else "") + '</div>'|safe
+                            }
+                        },
+                        {
+                            "value": "manual",
+                            "text": "Manual URL",
+                            "checked": form.public_url_mode.data == "manual",
+                            "label": {
+                                "classes": "!text-base"
+                            },
+                            "hint": {
+                                "text": "Use your own public URL from a reverse proxy, cloud hosting, or custom domain"
+                            },
+                            "conditional": {
+                                "html": input({
+                                    "name": "telegram_webhook_url",
+                                    "id": "telegram_webhook_url",
+                                    "type": "text",
+                                    "value": form.telegram_webhook_url.data or '',
+                                    "label": {
+                                        "text": "Public URL"
+                                    },
+                                    "hint": {
+                                        "html": 'Enter your public URL (e.g., https://example.com or from a reverse proxy)'
+                                    },
+                                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
+                                    'autocomplete': false,
+                                    "errorMessage": {
+                                        "text": form.telegram_webhook_url.errors[0]
+                                    } if form.telegram_webhook_url.errors else none
+                                })
+                            }
+                        }
+                    ]
+                }) }}
+            </div>
+        </div>
+
         <!-- Telegram Configuration -->
         <div>
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Telegram Configuration</h2>
@@ -170,24 +268,6 @@
                     "errorMessage": {
                         "text": form.telegram_bot_token.errors[0]
                     } if form.telegram_bot_token.errors else none,
-                }) }}
-
-                {{ input({
-                    "name": "telegram_webhook_url",
-                    "id": "telegram_webhook_url",
-                    "type": "text",
-                    "value": form.telegram_webhook_url.data or '',
-                    "label": {
-                        "text": form.telegram_webhook_url.label.text
-                    },
-                    "hint": {
-                        "html": 'For local development, use <a href="https://ngrok.com/" target="_blank" class="text-blue-600 hover:text-blue-800 underline">ngrok</a> <i class="fas fa-external-link-alt text-xs"></i> to create a public URL: <code class="bg-gray-100 px-1 py-0.5 rounded">ngrok http 5000</code>'
-                    },
-                    "classes": "mt-1 block w-full rounded-none border-2 border-gray-900 px-3 py-2 focus:border-gray-900 focus:ring-0 focus:outline-none",
-                    'autocomplete': false,
-                    "errorMessage": {
-                        "text": form.telegram_webhook_url.errors[0]
-                    } if form.telegram_webhook_url.errors else none,
                 }) }}
 
                 {{ input({
