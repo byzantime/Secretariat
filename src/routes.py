@@ -138,12 +138,11 @@ async def settings():
     # Get current ngrok URL and error if available
     ngrok_url = None
     ngrok_error = None
-    ngrok_service = current_app.extensions.get("ngrok_service")
-    if ngrok_service:
-        if ngrok_service.is_active():
-            ngrok_url = ngrok_service.get_tunnel_url()
-        elif ngrok_service.error_message:
-            ngrok_error = ngrok_service.error_message
+    ngrok_service = current_app.extensions["ngrok_service"]
+    if ngrok_service.is_active():
+        ngrok_url = ngrok_service.get_tunnel_url()
+    elif ngrok_service.error_message:
+        ngrok_error = ngrok_service.error_message
 
     # Load existing settings if available
     if request.method == "GET":

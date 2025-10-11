@@ -229,11 +229,10 @@ class WebUIChannel(CommunicationChannel):
         """Update status display for WebUI, prioritising todo display if todos exist."""
         try:
             # Get communication service to access current conversation
-            communication_service = current_app.extensions.get("communication_service")
+            communication_service = current_app.extensions["communication_service"]
 
             if (
-                communication_service
-                and communication_service.current_conversation
+                communication_service.current_conversation
                 and communication_service.current_conversation.todos
             ):
                 # Always show todos if they exist
@@ -359,8 +358,8 @@ class TelegramChannel(CommunicationChannel):
 
         if public_url_mode == "ngrok":
             # Check for ngrok service
-            ngrok_service = current_app.extensions.get("ngrok_service")
-            if ngrok_service and ngrok_service.is_active():
+            ngrok_service = current_app.extensions["ngrok_service"]
+            if ngrok_service.is_active():
                 ngrok_url = ngrok_service.get_tunnel_url()
                 if ngrok_url:
                     current_app.logger.info(
@@ -462,18 +461,17 @@ class TelegramChannel(CommunicationChannel):
             self.register_user(chat_id)
 
         # Get communication service to send the message
-        communication_service = current_app.extensions.get("communication_service")
-        if communication_service:
-            # Emit the message event to be processed by the LLM
-            event_handler = current_app.extensions["event_handler"]
-            await event_handler.emit_to_services(
-                "chat.message",
-                {
-                    "message": text,
-                    "source_channel": "telegram",
-                    "user_id": str(chat_id),
-                },
-            )
+        current_app.extensions["communication_service"]
+        # Emit the message event to be processed by the LLM
+        event_handler = current_app.extensions["event_handler"]
+        await event_handler.emit_to_services(
+            "chat.message",
+            {
+                "message": text,
+                "source_channel": "telegram",
+                "user_id": str(chat_id),
+            },
+        )
 
     async def update_status(self, status_message: Optional[str] = None) -> bool:
         """Update status via Telegram chat action indicator."""
