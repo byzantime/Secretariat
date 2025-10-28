@@ -102,9 +102,6 @@ class Config:
     VNC_PORT = int(os.environ.get("VNC_PORT", str(settings.vnc_port)))
     NOVNC_PORT = int(os.environ.get("NOVNC_PORT", str(settings.novnc_port)))
 
-    # Browser Device Emulation
-    BROWSER_DEVICE = os.environ.get("BROWSER_DEVICE", settings.browser_device)
-
 
 def save_settings_to_env(settings: Settings) -> None:
     """Save settings to .env file in data directory for persistence."""

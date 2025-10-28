@@ -216,7 +216,6 @@ class TestSettingsRoundTrip:
             timezone="America/New_York",
             qdrant_port=6334,
             debug=True,
-            browser_device="desktop",
         )
 
         # Convert to env dict
@@ -241,7 +240,6 @@ class TestSettingsRoundTrip:
         assert restored.timezone == original.timezone
         assert restored.qdrant_port == original.qdrant_port
         assert restored.debug == original.debug
-        assert restored.browser_device == original.browser_device
 
     def test_roundtrip_with_minimal_settings(self):
         """Test round-trip with minimal valid settings."""

@@ -45,13 +45,12 @@
 
 <!-- Viewer container - takes remaining space below control panel -->
 <div class="flex-1 min-h-0 bg-white">
-    <div id="iframe-container" class="h-full overflow-auto scrollbar-w-8 scrollbar-h-8 scrollbar scrollbar-thumb-gray-400 scrollbar-track-transparent scrollbar-thumb-rounded flex justify-center">
+    <div id="iframe-container" class="h-full w-full overflow-auto scrollbar-w-8 scrollbar-h-8 scrollbar scrollbar-thumb-gray-400 scrollbar-track-transparent scrollbar-thumb-rounded flex justify-center">
         <iframe
             id="vnc-frame"
             src="{{ novnc_url }}"
             allow="clipboard-read; clipboard-write"
-            width="{{ device_width }}"
-            height="{{ device_height }}"
+            class="w-full h-full"
             allowfullscreen
             sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
             loading="eager"
@@ -65,36 +64,6 @@
     const vncFrame = document.getElementById('vnc-frame');
     const doneBtn = document.getElementById('done-btn');
     const iframeContainer = document.getElementById('iframe-container');
-
-    // Device dimensions from VNC server config
-    const DEVICE_WIDTH = {{ device_width }};
-    const DEVICE_HEIGHT = {{ device_height }};
-
-    // Detect mobile device
-    const isMobile = 'ontouchstart' in window;
-
-    // Scale iframe to fit viewport when narrower than device width
-    function scaleIframe() {
-        // Use clientWidth to exclude scrollbar width
-        const viewportWidth = document.documentElement.clientWidth;
-
-        // On mobile: always scale to match viewport width
-        // On desktop: only scale down if viewport is narrower than device
-        if (isMobile || viewportWidth < DEVICE_WIDTH) {
-            const scale = viewportWidth / DEVICE_WIDTH;
-            // Constrain container width to match scaled visual width
-            iframeContainer.style.width = `${viewportWidth}px`;
-            iframeContainer.style.margin = '0 auto';
-        } else {
-            // Reset to normal when viewport is wider (desktop only)
-            iframeContainer.style.width = '';
-            iframeContainer.style.margin = '';
-        }
-    }
-
-    // Apply scaling on load and resize
-    window.addEventListener('load', scaleIframe);
-    window.addEventListener('resize', scaleIframe);
 
     // Function to focus keyboard input using noVNC's mechanism
     function focusKeyboardInput() {

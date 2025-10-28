@@ -241,7 +241,6 @@ class TestConfigIntegration:
             ("TIMEZONE", "timezone"),
             ("QDRANT_PORT", "qdrant_port"),
             ("VNC_PORT", "vnc_port"),
-            ("BROWSER_DEVICE", "browser_device"),
         ]
 
         settings = Settings.model_construct()

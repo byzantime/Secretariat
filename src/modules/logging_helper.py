@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 import os
 from typing import Dict
 
@@ -42,17 +43,27 @@ class LoggingHelper:
         # Clear existing handlers to prevent duplicates
         root_logger.handlers.clear()
 
-        # Create console handler
-        console_handler = logging.StreamHandler()
-
         # Create formatter
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
+
+        # Create console handler
+        console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
 
-        # Add handler to root logger
+        # Create file handler with rotation (10MB per file, keep last 5 files)
+        log_dir = os.environ.get("LOG_DIR", "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, "app.log")
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_file, maxBytes=10 * 1024 * 1024, backupCount=5
+        )
+        file_handler.setFormatter(formatter)
+
+        # Add handlers to root logger
         root_logger.addHandler(console_handler)
+        root_logger.addHandler(file_handler)
 
         # Configure Quart app logger
         app.logger.removeHandler(default_handler)
@@ -67,7 +78,9 @@ class LoggingHelper:
         self._load_enabled_loggers(app)
 
         app.extensions["logging_helper"] = self
-        app.logger.info(f"Logging initialised with level: {log_level}")
+        app.logger.info(
+            f"Logging initialised with level: {log_level} (file: {log_file})"
+        )
 
     def _configure_third_party_loggers(self, app):
         """Set all third-party loggers to WARNING."""
