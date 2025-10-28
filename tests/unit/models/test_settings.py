@@ -22,7 +22,6 @@ class TestSettingsDefaults:
         # Browser defaults
         assert settings.browser_use_model == "openai/o3"
         assert settings.browser_user_data_dir == "./data/browser_profile"
-        assert settings.browser_device == "pixel"
 
         # Memory defaults
         assert settings.qdrant_port == 6333
@@ -163,12 +162,10 @@ class TestSettingsFieldTypes:
             zen_api_key="test-key",
             timezone="America/New_York",
             vnc_display=":1",
-            browser_device="desktop",
         )
 
         assert settings.timezone == "America/New_York"
         assert settings.vnc_display == ":1"
-        assert settings.browser_device == "desktop"
 
 
 class TestSettingsRequiredFieldsLogic:
@@ -271,7 +268,6 @@ class TestSettingsOptionalBehavior:
             qdrant_port=6334,
             memory_collection_name="custom_memories",
             assistance_link_expiration=600,
-            browser_device="desktop",
             debug=True,
             log_level="DEBUG",
             secret_key="custom-secret",

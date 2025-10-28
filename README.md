@@ -11,13 +11,21 @@ Secretariat currently lacks authentication and is ONLY suitable for deploying on
 ```bash
 docker pull ghcr.io/byzantime/secretariat:latest
 docker run -d --name secretariat -p 8080:8080 \
+  --restart always \
   -v secretariat-data:/data \
   ghcr.io/byzantime/secretariat:latest
 
 # Visit http://localhost:8080 and configure your LLM provider in Settings
 ```
-
 Data persists in the `secretariat-data` volume across container restarts and upgrades.
+
+The app will always restart automatically after reboot (change to `--restart unless-stopped` if you'd like it to stay down once stopped).  Before auto-restart will work, you also need to ensure Docker itself starts on boot. On most Linux systems:
+
+```bash
+# Enable Docker daemon to start on boot
+sudo systemctl enable docker
+sudo systemctl start docker
+```
 
 **Upgrading to a new version:**
 ```bash
@@ -69,3 +77,17 @@ ruff check . --fix --unsafe-fixes  # Lint and format code
 black .                            # Format code
 pytest                             # Run tests
 ```
+
+### Debugging and Logs
+
+Logs are written to `logs/app.log` with automatic rotation (10MB per file, keeps last 5 backups):
+
+```bash
+tail -f logs/app.log               # Real-time log streaming
+tail -50 logs/app.log              # View last 50 lines
+grep ERROR logs/app.log            # Search for errors
+grep -i browser logs/app.log       # Case-insensitive search (e.g., browser-use issues)
+ls -lh logs/                       # View all log files
+```
+
+Logs are written to both console and file, useful for debugging long-running processes.

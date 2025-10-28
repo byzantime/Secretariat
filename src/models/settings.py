@@ -70,9 +70,6 @@ class Settings(BaseModel):
     vnc_port: int = Field(default=5900, description="VNC port")
     novnc_port: int = Field(default=6080, description="NoVNC port")
 
-    # Browser Device Emulation
-    browser_device: str = Field(default="pixel", description="Browser device emulation")
-
     # Timezone Configuration
     timezone: str = Field(default="UTC", description="Application timezone")
 

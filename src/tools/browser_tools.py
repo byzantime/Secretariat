@@ -7,6 +7,7 @@ import browser_use
 from browser_use import ActionResult
 from browser_use import Tools
 from browser_use.browser.profile import BrowserProfile
+from browser_use.browser.profile import ViewportSize
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic_ai import RunContext
@@ -94,15 +95,12 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
     display_env = os.environ.get("DISPLAY")
     current_app.logger.info(f"🖥️ DISPLAY environment variable: {display_env}")
 
-    # Get device profile configuration from VNC server
-    vnc_server = current_app.extensions["vnc_server"]
-    device_config = vnc_server.get_browser_profile_config()
-
-    # Create browser instance with device emulation (VNC already running from app startup)
+    # Create browser instance (VNC already running from app startup)
     user_data_dir = current_app.config["BROWSER_USER_DATA_DIR"]
 
     browser_profile = BrowserProfile(
         headless=False,
+        is_local=True,
         user_data_dir=user_data_dir,  # Persistent session storage (cookies, login state)
         env=(
             {"DISPLAY": display_env} if display_env else None

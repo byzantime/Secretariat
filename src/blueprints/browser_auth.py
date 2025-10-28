@@ -116,19 +116,12 @@ async def browser_viewer(token: str):
     })
     novnc_url = f"{novnc_base}?{query_params}"
 
-    # Get device dimensions from VNC server for responsive iframe
-    vnc_server = current_app.extensions["vnc_server"]
-    browser_config = vnc_server.get_browser_profile_config()
-    window_size = browser_config["window_size"]
-
     return await render_template(
         "browser_auth/viewer.html",
         session_id=session_id,
         url=session.url,
         reason=session.reason,
         novnc_url=novnc_url,
-        device_width=window_size["width"],
-        device_height=window_size["height"],
     )
 
 
