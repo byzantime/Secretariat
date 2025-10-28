@@ -105,8 +105,7 @@ async def browse_web(ctx: RunContext[dict], task: str) -> str:
         env=(
             {"DISPLAY": display_env} if display_env else None
         ),  # Explicitly pass DISPLAY for X11
-        user_agent=device_config["user_agent"],
-        window_size=device_config["window_size"],
+        window_size=ViewportSize(width=1920, height=1080),
     )
 
     browser_instance = browser_use.Browser(browser_profile=browser_profile)
